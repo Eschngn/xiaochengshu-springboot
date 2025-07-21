@@ -26,11 +26,12 @@ public class KeyValueRpcService {
         return Objects.nonNull(response) && response.isSuccess();
     }
 
-    public void deleteNoteContent(String uuid) {
+    public boolean deleteNoteContent(String uuid) {
         DeleteNoteContentReqDTO deleteNoteContentReqDTO = DeleteNoteContentReqDTO.builder()
                 .uuid(uuid)
                 .build();
-        keyValueFeignApi.deleteNoteContent(deleteNoteContentReqDTO);
+        Response<?> response = keyValueFeignApi.deleteNoteContent(deleteNoteContentReqDTO);
+        return Objects.nonNull(response) && response.isSuccess();
     }
 
     public String findNoteContent(String uuid) {

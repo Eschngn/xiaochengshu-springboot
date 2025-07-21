@@ -14,10 +14,7 @@ import com.chengliuxiang.xiaochengshu.note.biz.enums.NoteStatusEnum;
 import com.chengliuxiang.xiaochengshu.note.biz.enums.NoteTypeEnum;
 import com.chengliuxiang.xiaochengshu.note.biz.enums.NoteVisibleEnum;
 import com.chengliuxiang.xiaochengshu.note.biz.enums.ResponseCodeEnum;
-import com.chengliuxiang.xiaochengshu.note.biz.model.vo.DeleteNoteReqVO;
-import com.chengliuxiang.xiaochengshu.note.biz.model.vo.FindNoteDetailReqVO;
-import com.chengliuxiang.xiaochengshu.note.biz.model.vo.FindNoteDetailRspVO;
-import com.chengliuxiang.xiaochengshu.note.biz.model.vo.PublishNoteReqVO;
+import com.chengliuxiang.xiaochengshu.note.biz.model.vo.*;
 import com.chengliuxiang.xiaochengshu.note.biz.rpc.DistributedIdGeneratorRpcService;
 import com.chengliuxiang.xiaochengshu.note.biz.rpc.KeyValueRpcService;
 import com.chengliuxiang.xiaochengshu.note.biz.rpc.UserRpcService;
@@ -271,6 +268,84 @@ public class NoteServiceImpl implements NoteService {
                 && !Objects.equals(creatorId, currUserId)) {
             throw new BizException(ResponseCodeEnum.NOTE_PRIVATE);
         }
+    }
+
+    @Override
+    public Response<?> updateNote(UpdateNoteReqVO updateNoteReqVO) {
+        Long noteId = updateNoteReqVO.getId();
+        Integer type = updateNoteReqVO.getType();
+        NoteTypeEnum noteTypeEnum = NoteTypeEnum.valueOf(type);
+        if (Objects.isNull(noteTypeEnum)) {
+            throw new BizException(ResponseCodeEnum.NOTE_TYPE_ERROR);
+        }
+        String imgUris = null;
+        String videoUri = null;
+        switch (noteTypeEnum) {
+            case IMAGE_TEXT:
+                List<String> imgUriList = updateNoteReqVO.getImgUris();
+                Preconditions.checkArgument(CollUtil.isNotEmpty(imgUriList), "笔记图片不能为空");
+                Preconditions.checkArgument(imgUriList.size() <= 8, "笔记图片不能多于 8 张");
+                // 将图片链接拼接，以逗号分隔
+                imgUris = StringUtils.join(imgUriList, ",");
+                break;
+            case VIDEO:
+                videoUri = updateNoteReqVO.getVideoUri();
+                Preconditions.checkArgument(StringUtils.isNotBlank(videoUri), "笔记视频不能为空");
+                break;
+            default:
+                break;
+        }
+        Long userId = LoginUserContextHolder.getUserId();
+        NoteDO noteDO = noteDOMapper.selectByPrimaryKey(noteId);
+        if (Objects.isNull(noteDO)) {
+            throw new BizException(ResponseCodeEnum.NOTE_NOT_FOUND);
+        }
+        if (!Objects.equals(noteDO.getCreatorId(), userId)) {
+            throw new BizException(ResponseCodeEnum.NOTE_CANT_OPERATE);
+        }
+        Long topicId = updateNoteReqVO.getTopicId();
+        String topicName = null;
+        if (Objects.nonNull(topicId)) {
+            topicName = topicDOMapper.selectNameByPrimaryKey(topicId);
+            if(StringUtils.isBlank(topicName)) throw new BizException(ResponseCodeEnum.TOPIC_NOT_FOUND);
+        }
+        // 更新笔记元数据表 t_note
+        String content = updateNoteReqVO.getContent();
+         noteDO=NoteDO.builder()
+                .id(noteId)
+                .isContentEmpty(StringUtils.isBlank(content))
+                .imgUris(imgUris)
+                .title(updateNoteReqVO.getTitle())
+                .topicId(updateNoteReqVO.getTopicId())
+                .topicName(topicName)
+                .type(type)
+                .updateTime(LocalDateTime.now())
+                .videoUri(videoUri)
+                .build();
+        noteDOMapper.updateByPrimaryKey(noteDO);
+        // 删除 Redis 缓存
+        String noteDetailRedisKey = RedisKeyConstants.buildNoteDetailKey(noteId);
+        redisTemplate.delete(noteDetailRedisKey);
+
+        LOCAL_CACHE.invalidate(noteId);
+
+        NoteDO selectedNote = noteDOMapper.selectByPrimaryKey(noteId);
+        String contentUuid = selectedNote.getContentUuid();
+
+        // 笔记内容是否更新成功
+        boolean isUpdateContentSuccess = false;
+        if(StringUtils.isBlank(content)){
+            // 若笔记内容为空，则删除 K-V 存储
+            isUpdateContentSuccess=keyValueRpcService.deleteNoteContent(contentUuid);
+        }else{
+            // 调用 K-V 更新短文本
+            isUpdateContentSuccess=keyValueRpcService.saveNoteContent(contentUuid,content);
+        }
+        // 如果更新失败，抛出业务异常，回滚事务
+        if (!isUpdateContentSuccess) {
+            throw new BizException(ResponseCodeEnum.NOTE_UPDATE_FAIL);
+        }
+        return Response.success();
     }
 
 
