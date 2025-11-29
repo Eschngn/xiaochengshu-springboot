@@ -356,5 +356,10 @@ public class NoteServiceImpl implements NoteService {
         return Response.success();
     }
 
+    @Override
+    public void deleteNoteLocalCache(Long noteId) {
+        LOCAL_CACHE.invalidate(noteId);
+    }
+
 
 }

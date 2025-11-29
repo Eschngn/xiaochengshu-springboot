@@ -5,11 +5,14 @@ import com.chengliuxiang.xiaochengshu.note.biz.model.vo.*;
 
 public interface NoteService {
 
-    public Response<?> publishNote(PublishNoteReqVO publishNoteReqVO);
+    Response<?> publishNote(PublishNoteReqVO publishNoteReqVO);
 
-    public Response<?> deleteNote(DeleteNoteReqVO deleteNoteReqVO);
+    Response<?> deleteNote(DeleteNoteReqVO deleteNoteReqVO);
 
-    public Response<FindNoteDetailRspVO>  findNoteDetail(FindNoteDetailReqVO findNoteDetailReqVO);
+    Response<FindNoteDetailRspVO> findNoteDetail(FindNoteDetailReqVO findNoteDetailReqVO);
 
-    public Response<?> updateNote(UpdateNoteReqVO updateNoteReqVO);
+    Response<?> updateNote(UpdateNoteReqVO updateNoteReqVO);
+
+    void deleteNoteLocalCache(Long noteId);
+
 }
