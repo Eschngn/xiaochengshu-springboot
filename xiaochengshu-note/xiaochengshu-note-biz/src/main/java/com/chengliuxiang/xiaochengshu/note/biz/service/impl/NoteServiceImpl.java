@@ -170,7 +170,7 @@ public class NoteServiceImpl implements NoteService {
         }
         String noteDetailKey = RedisKeyConstants.buildNoteDetailKey(noteId);
         redisTemplate.delete(noteDetailKey);
-        rocketMQTemplate.syncSend(MQConstants.TOPIC_DELETE_NOTE_LOCAL_CACHE,noteId);
+        rocketMQTemplate.syncSend(MQConstants.TOPIC_DELETE_NOTE_LOCAL_CACHE, noteId);
         log.info("====> MQ：删除笔记本地缓存消息发送成功");
         return Response.success();
     }
@@ -390,6 +390,27 @@ public class NoteServiceImpl implements NoteService {
     @Override
     public void deleteNoteLocalCache(Long noteId) {
         LOCAL_CACHE.invalidate(noteId);
+    }
+
+    @Override
+    public Response<?> visibleOnlyMe(UpdateNoteVisibleOnlyMeReqVO updateNoteVisibleOnlyMeReqVO) {
+        Long noteId = updateNoteVisibleOnlyMeReqVO.getId();
+        NoteDO noteDO = NoteDO.builder()
+                .id(noteId)
+                .visible(NoteVisibleEnum.PRIVATE.getCode())
+                .updateTime(LocalDateTime.now())
+                .build();
+        int count = noteDOMapper.updateVisibleOnlyMe(noteDO);
+        if (count == 0) {
+            throw new BizException(ResponseCodeEnum.NOTE_CANT_VISIBLE_ONLY_ME);
+        }
+        String noteDetailRedisKey = RedisKeyConstants.buildNoteDetailKey(noteId);
+        redisTemplate.delete(noteDetailRedisKey);
+
+        rocketMQTemplate.syncSend(MQConstants.TOPIC_DELETE_NOTE_LOCAL_CACHE, noteId);
+        log.info("====> MQ：删除笔记本地缓存发送成功...");
+
+        return Response.success();
     }
 
 
