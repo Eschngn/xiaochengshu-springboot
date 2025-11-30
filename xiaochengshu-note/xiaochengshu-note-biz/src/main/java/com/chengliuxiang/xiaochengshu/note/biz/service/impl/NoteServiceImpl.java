@@ -168,6 +168,10 @@ public class NoteServiceImpl implements NoteService {
         if (count == 0) {
             throw new BizException(ResponseCodeEnum.NOTE_NOT_FOUND);
         }
+        String noteDetailKey = RedisKeyConstants.buildNoteDetailKey(noteId);
+        redisTemplate.delete(noteDetailKey);
+        rocketMQTemplate.syncSend(MQConstants.TOPIC_DELETE_NOTE_LOCAL_CACHE,noteId);
+        log.info("====> MQ：删除笔记本地缓存消息发送成功");
         return Response.success();
     }
 

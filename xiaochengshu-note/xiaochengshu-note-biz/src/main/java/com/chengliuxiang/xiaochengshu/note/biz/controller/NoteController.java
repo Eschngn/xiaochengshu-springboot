@@ -2,10 +2,7 @@ package com.chengliuxiang.xiaochengshu.note.biz.controller;
 
 import com.chengliuxiang.framework.biz.operationlog.aspect.ApiOperationLog;
 import com.chengliuxiang.framework.common.response.Response;
-import com.chengliuxiang.xiaochengshu.note.biz.model.vo.FindNoteDetailReqVO;
-import com.chengliuxiang.xiaochengshu.note.biz.model.vo.FindNoteDetailRspVO;
-import com.chengliuxiang.xiaochengshu.note.biz.model.vo.PublishNoteReqVO;
-import com.chengliuxiang.xiaochengshu.note.biz.model.vo.UpdateNoteReqVO;
+import com.chengliuxiang.xiaochengshu.note.biz.model.vo.*;
 import com.chengliuxiang.xiaochengshu.note.biz.service.NoteService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -39,5 +36,11 @@ public class NoteController {
     @ApiOperationLog(description = "笔记修改")
     public Response<?> updateNote(@Validated @RequestBody UpdateNoteReqVO updateNoteReqVO) {
         return noteService.updateNote(updateNoteReqVO);
+    }
+
+    @PostMapping(value = "/delete")
+    @ApiOperationLog(description = "笔记删除")
+    public Response<?> deleteNote(@Validated @RequestBody DeleteNoteReqVO deleteNoteReqVO) {
+        return noteService.deleteNote(deleteNoteReqVO);
     }
 }
