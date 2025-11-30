@@ -408,7 +408,31 @@ public class NoteServiceImpl implements NoteService {
         redisTemplate.delete(noteDetailRedisKey);
 
         rocketMQTemplate.syncSend(MQConstants.TOPIC_DELETE_NOTE_LOCAL_CACHE, noteId);
-        log.info("====> MQ：删除笔记本地缓存发送成功...");
+        log.info("====> MQ：删除笔记本地缓存发送成功");
+
+        return Response.success();
+    }
+
+    @Override
+    public Response<?> topNote(TopNoteReqVO topNoteReqVO) {
+        Long noteId = topNoteReqVO.getId();
+        Boolean isTop = topNoteReqVO.getIsTop();
+        Long currUserId = LoginUserContextHolder.getUserId();
+        NoteDO noteDO = NoteDO.builder()
+                .id(noteId)
+                .isTop(isTop)
+                .updateTime(LocalDateTime.now())
+                .creatorId(currUserId)
+                .build();
+        int count = noteDOMapper.updateIsTop(noteDO);
+        if (count == 0) {
+            throw new BizException(ResponseCodeEnum.NOTE_CANT_OPERATE);
+        }
+        String noteDetailRedisKey = RedisKeyConstants.buildNoteDetailKey(noteId);
+        redisTemplate.delete(noteDetailRedisKey);
+
+        rocketMQTemplate.syncSend(MQConstants.TOPIC_DELETE_NOTE_LOCAL_CACHE, noteId);
+        log.info("====> MQ：删除笔记本地缓存发送成功");
 
         return Response.success();
     }

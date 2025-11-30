@@ -49,4 +49,10 @@ public class NoteController {
     public Response<?> visibleOnlyMe(@Validated @RequestBody UpdateNoteVisibleOnlyMeReqVO updateNoteVisibleOnlyMeReqVO) {
         return noteService.visibleOnlyMe(updateNoteVisibleOnlyMeReqVO);
     }
+
+    @PostMapping(value = "/top")
+    @ApiOperationLog(description = "笔记置顶/取消置顶")
+    public Response<?> topNote(@Validated @RequestBody TopNoteReqVO topNoteReqVO) {
+        return noteService.topNote(topNoteReqVO);
+    }
 }

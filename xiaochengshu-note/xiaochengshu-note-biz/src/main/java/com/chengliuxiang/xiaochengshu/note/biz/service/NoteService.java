@@ -17,4 +17,6 @@ public interface NoteService {
 
     Response<?> visibleOnlyMe(UpdateNoteVisibleOnlyMeReqVO updateNoteVisibleOnlyMeReqVO);
 
+    Response<?> topNote(TopNoteReqVO topNoteReqVO);
+
 }
