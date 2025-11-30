@@ -28,8 +28,12 @@ import jakarta.annotation.Resource;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.rocketmq.client.producer.SendCallback;
+import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 
@@ -311,11 +315,16 @@ public class NoteServiceImpl implements NoteService {
         String topicName = null;
         if (Objects.nonNull(topicId)) {
             topicName = topicDOMapper.selectNameByPrimaryKey(topicId);
-            if(StringUtils.isBlank(topicName)) throw new BizException(ResponseCodeEnum.TOPIC_NOT_FOUND);
+            if (StringUtils.isBlank(topicName)) throw new BizException(ResponseCodeEnum.TOPIC_NOT_FOUND);
         }
+
+        // 第一次删除 Redis 缓存
+        String noteDetailRedisKey = RedisKeyConstants.buildNoteDetailKey(noteId);
+        redisTemplate.delete(noteDetailRedisKey);
+
         // 更新笔记元数据表 t_note
         String content = updateNoteReqVO.getContent();
-         noteDO=NoteDO.builder()
+        noteDO = NoteDO.builder()
                 .id(noteId)
                 .isContentEmpty(StringUtils.isBlank(content))
                 .imgUris(imgUris)
@@ -327,14 +336,30 @@ public class NoteServiceImpl implements NoteService {
                 .videoUri(videoUri)
                 .build();
         noteDOMapper.updateByPrimaryKey(noteDO);
-        // 删除 Redis 缓存
-        String noteDetailRedisKey = RedisKeyConstants.buildNoteDetailKey(noteId);
-        redisTemplate.delete(noteDetailRedisKey);
+
+        // 延迟双删策略：延迟第二次删除 Redis 缓存，保持数据一致性
+        // 异步发送延时消息
+        Message<String> message = MessageBuilder.withPayload(String.valueOf(noteId)).build();
+        rocketMQTemplate.asyncSend(MQConstants.TOPIC_DELAY_DELETE_NOTE_REDIS_CACHE, message,
+                new SendCallback() {
+                    @Override
+                    public void onSuccess(SendResult sendResult) {
+                        log.info("## 延时删除 Redis 笔记缓存消息发送成功");
+                    }
+
+                    @Override
+                    public void onException(Throwable throwable) {
+                        log.error("## 延时删除 Redis 笔记缓存消息发送失败", throwable);
+                    }
+                },
+                3000, // 超时时间(毫秒)
+                1 // 延迟级别，1 表示延时 1s
+        );
 
         // LOCAL_CACHE.invalidate(noteId);
 
         // 同步发送广播模式 MQ，将所有部署示例的本地缓存全部删除
-        rocketMQTemplate.syncSend(MQConstants.TOPIC_DELETE_NOTE_LOCAL_CACHE,noteId);
+        rocketMQTemplate.syncSend(MQConstants.TOPIC_DELETE_NOTE_LOCAL_CACHE, noteId);
         log.info("====> MQ:删除笔记本地缓存消息发送成功");
 
         NoteDO selectedNote = noteDOMapper.selectByPrimaryKey(noteId);
@@ -342,12 +367,14 @@ public class NoteServiceImpl implements NoteService {
 
         // 笔记内容是否更新成功
         boolean isUpdateContentSuccess = false;
-        if(StringUtils.isBlank(content)){
+        if (StringUtils.isBlank(content)) {
             // 若笔记内容为空，则删除 K-V 存储
-            isUpdateContentSuccess=keyValueRpcService.deleteNoteContent(contentUuid);
-        }else{
+            isUpdateContentSuccess = keyValueRpcService.deleteNoteContent(contentUuid);
+        } else {
+            // 若将无内容的笔记，更新为了有内容的笔记，需要重新生成 UUID
+            contentUuid = StringUtils.isBlank(contentUuid) ? UUID.randomUUID().toString() : contentUuid;
             // 调用 K-V 更新短文本
-            isUpdateContentSuccess=keyValueRpcService.saveNoteContent(contentUuid,content);
+            isUpdateContentSuccess = keyValueRpcService.saveNoteContent(contentUuid, content);
         }
         // 如果更新失败，抛出业务异常，回滚事务
         if (!isUpdateContentSuccess) {
