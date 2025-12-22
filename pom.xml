@@ -19,6 +19,7 @@
         <module>xiaochengshu-distributed-id-generator</module>
         <module>xiaochengshu-kv</module>
         <module>xiaochengshu-note</module>
+        <module>xiaochengshu-user-relation</module>
     </modules>
 
     <properties>

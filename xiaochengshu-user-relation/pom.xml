@@ -1,0 +1,20 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.chengliuxiang</groupId>
+        <artifactId>xiaochengshu</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <packaging>pom</packaging>
+
+    <modules>
+        <module>xiaochengshu-user-relation-api</module>
+        <module>xiaochengshu-user-relation-biz</module>
+    </modules>
+
+    <artifactId>xiaochengshu-user-relation</artifactId>
+    <name>${project.artifactId}</name>
+    <description>用户关系服务</description>
+</project>
