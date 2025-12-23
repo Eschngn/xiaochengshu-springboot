@@ -48,7 +48,7 @@
     </springProfile>
 
     <!-- 其它环境 -->
-    <springProfile name="prd">
+    <springProfile name="prod">
         <include resource="org/springframework/boot/logging/logback/console-appender.xml" />
         <root level="INFO">
             <appender-ref ref="FILE"/> <!-- 生产环境下，仅打印日志到文件中 -->
