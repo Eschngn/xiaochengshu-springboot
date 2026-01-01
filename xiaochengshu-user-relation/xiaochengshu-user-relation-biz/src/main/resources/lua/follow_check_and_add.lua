@@ -1,6 +1,6 @@
 local key = KEYS[1]
 local followUserId = ARGV[1]
-local timestamp = ARGC[2]
+local timestamp = ARGV[2]
 
 -- EXISTS 检查 ZSET 是否存在
 local exists=redis.call('EXISTS',key)
