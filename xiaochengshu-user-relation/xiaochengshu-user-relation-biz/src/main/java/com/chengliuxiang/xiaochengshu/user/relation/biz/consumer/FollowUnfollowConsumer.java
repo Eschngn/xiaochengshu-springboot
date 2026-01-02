@@ -7,6 +7,7 @@ import com.chengliuxiang.xiaochengshu.user.relation.biz.domain.dataobject.Follow
 import com.chengliuxiang.xiaochengshu.user.relation.biz.domain.mapper.FansDOMapper;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.domain.mapper.FollowingDOMapper;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.model.dto.FollowUserMqDTO;
+import com.google.common.util.concurrent.RateLimiter;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.common.message.Message;
@@ -29,44 +30,48 @@ public class FollowUnfollowConsumer implements RocketMQListener<Message> {
     private FansDOMapper fansDOMapper;
     @Resource
     private TransactionTemplate transactionTemplate;
+    @Resource
+    private RateLimiter rateLimiter;
 
     @Override
     public void onMessage(Message message) {
+        // 流量削峰：通过获取令牌，如果没有令牌可用，将阻塞，直到获得
+        rateLimiter.acquire();
         String bodyJsonStr = new String(message.getBody());
         String tags = message.getTags();
         log.info("==> FollowUnfollowConsumer 消费了消息 {}, tags: {}", bodyJsonStr, tags);
 
-        if(Objects.equals(tags, MQConstants.TAG_FOLLOW)){ // 关注
+        if (Objects.equals(tags, MQConstants.TAG_FOLLOW)) { // 关注
             handleFollowTagMessage(bodyJsonStr);
-        }else if(Objects.equals(tags, MQConstants.TAG_UNFOLLOW)){ // 取关
+        } else if (Objects.equals(tags, MQConstants.TAG_UNFOLLOW)) { // 取关
 
         }
     }
 
     private void handleFollowTagMessage(String bodyJsonStr) {
         FollowUserMqDTO followUserMqDTO = JsonUtils.parseObject(bodyJsonStr, FollowUserMqDTO.class);
-        if(Objects.isNull(followUserMqDTO)) return;
+        if (Objects.isNull(followUserMqDTO)) return;
         // 幂等性：通过联合唯一索引保证
         Long userId = followUserMqDTO.getUserId();
         Long followUserId = followUserMqDTO.getFollowUserId();
         LocalDateTime createTime = followUserMqDTO.getCreateTime();
         // 编程式提交事务
-        boolean isSuccess=Boolean.TRUE.equals(transactionTemplate.execute(status ->{
+        boolean isSuccess = Boolean.TRUE.equals(transactionTemplate.execute(status -> {
             try {
                 int count = followingDOMapper.insert(FollowingDO.builder()
                         .userId(userId)
                         .followingUserId(followUserId)
                         .createTime(createTime).build());
-                if(count > 0){
+                if (count > 0) {
                     fansDOMapper.insert(FansDO.builder()
                             .userId(followUserId)
                             .fansUserId(userId)
                             .createTime(createTime).build());
                 }
                 return true;
-            }catch (Exception e){
+            } catch (Exception e) {
                 status.setRollbackOnly(); // 标记事务为回滚
-                log.error("",e);
+                log.error("", e);
             }
             return false;
         }));
