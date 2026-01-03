@@ -17,4 +17,6 @@ public class FindUserByIdRspDTO {
 
     private String avatar;
 
+    private String introduction;
+
 }

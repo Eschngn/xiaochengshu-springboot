@@ -1,5 +1,6 @@
 package com.chengliuxiang.xiaochengshu.user.biz.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.RandomUtil;
 import com.chengliuxiang.framework.biz.context.holder.LoginUserContextHolder;
 import com.chengliuxiang.framework.common.enums.DeleteEnum;
@@ -22,15 +23,13 @@ import com.chengliuxiang.xiaochengshu.user.biz.model.vo.UpdateUserInfoReqVO;
 import com.chengliuxiang.xiaochengshu.user.biz.rpc.DistributedIdGeneratorRpcService;
 import com.chengliuxiang.xiaochengshu.user.biz.rpc.OssRpcService;
 import com.chengliuxiang.xiaochengshu.user.biz.service.UserService;
-import com.chengliuxiang.xiaochengshu.user.dto.req.FindUserByIdReqDTO;
-import com.chengliuxiang.xiaochengshu.user.dto.req.FindUserByPhoneReqDTO;
-import com.chengliuxiang.xiaochengshu.user.dto.req.RegisterUserReqDTO;
-import com.chengliuxiang.xiaochengshu.user.dto.req.UpdateUserPasswordReqDTO;
+import com.chengliuxiang.xiaochengshu.user.dto.req.*;
 import com.chengliuxiang.xiaochengshu.user.dto.resp.FindUserByIdRspDTO;
 import com.chengliuxiang.xiaochengshu.user.dto.resp.FindUserByPhoneRspDTO;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -44,6 +43,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -252,8 +252,8 @@ public class UserServiceImpl implements UserService {
         Long userId = findUserByIdReqDTO.getId();
         // 先从本地缓存查询
         FindUserByIdRspDTO userInfoLocalCache = LOCAL_CACHE.getIfPresent(userId);
-        if(Objects.nonNull(userInfoLocalCache)){
-            log.info("==> 命中了本地缓存:{}",userInfoLocalCache);
+        if (Objects.nonNull(userInfoLocalCache)) {
+            log.info("==> 命中了本地缓存:{}", userInfoLocalCache);
             return Response.success(userInfoLocalCache);
         }
         String userInfoRedisKey = RedisKeyConstants.buildUserInfoKey(userId);
@@ -292,8 +292,29 @@ public class UserServiceImpl implements UserService {
             // 保底1天的随机事件，防止缓存雪崩
             long expireSeconds = 60 * 60 * 24 + RandomUtil.randomInt(60 * 60 * 24);
             redisTemplate.opsForValue()
-                    .set(userInfoRedisKey, JsonUtils.toJsonString(findUserByIdReqDTO), expireSeconds, TimeUnit.SECONDS);
+                    .set(userInfoRedisKey, JsonUtils.toJsonString(findUserByIdRspDTO), expireSeconds, TimeUnit.SECONDS);
         });
         return Response.success(findUserByIdRspDTO);
+    }
+
+    /**
+     * 根据用户 ID 集合查询用户信息
+     *
+     * @param findUserByIdsReqDTO
+     * @return
+     */
+    @Override
+    public Response<List<FindUserByIdRspDTO>> findByIds(FindUserByIdsReqDTO findUserByIdsReqDTO) {
+        List<Long> userIds = findUserByIdsReqDTO.getIds();
+        List<String> redisKeys = userIds.stream().map(RedisKeyConstants::buildUserInfoKey).toList();
+        // 先从 Redis 查，multiGet 批量查询提升性能
+        List<Object> redisValues = redisTemplate.opsForValue().multiGet(redisKeys);
+        if (CollUtil.isNotEmpty(redisValues)) {
+            // 过滤掉为空的数据
+            redisValues = redisValues.stream().filter(Objects::nonNull).collect(Collectors.toList());
+        }
+        List<FindUserByIdRspDTO> findUserByIdRspDTOS = Lists.newArrayList();
+
+        return null;
     }
 }

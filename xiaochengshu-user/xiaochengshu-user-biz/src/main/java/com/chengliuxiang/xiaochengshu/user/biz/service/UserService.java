@@ -2,12 +2,11 @@ package com.chengliuxiang.xiaochengshu.user.biz.service;
 
 import com.chengliuxiang.framework.common.response.Response;
 import com.chengliuxiang.xiaochengshu.user.biz.model.vo.UpdateUserInfoReqVO;
-import com.chengliuxiang.xiaochengshu.user.dto.req.FindUserByIdReqDTO;
-import com.chengliuxiang.xiaochengshu.user.dto.req.FindUserByPhoneReqDTO;
-import com.chengliuxiang.xiaochengshu.user.dto.req.RegisterUserReqDTO;
-import com.chengliuxiang.xiaochengshu.user.dto.req.UpdateUserPasswordReqDTO;
+import com.chengliuxiang.xiaochengshu.user.dto.req.*;
 import com.chengliuxiang.xiaochengshu.user.dto.resp.FindUserByIdRspDTO;
 import com.chengliuxiang.xiaochengshu.user.dto.resp.FindUserByPhoneRspDTO;
+
+import java.util.List;
 
 public interface UserService {
 
@@ -48,4 +47,11 @@ public interface UserService {
      * @return
      */
     Response<FindUserByIdRspDTO> findById(FindUserByIdReqDTO findUserByIdReqDTO);
+
+    /**
+     * 根据用户 ID 集合查询用户信息
+     * @param findUserByIdsReqDTO
+     * @return
+     */
+    Response<List<FindUserByIdRspDTO>> findByIds(FindUserByIdsReqDTO findUserByIdsReqDTO);
 }
