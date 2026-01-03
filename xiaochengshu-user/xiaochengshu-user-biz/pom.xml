@@ -22,6 +22,11 @@
 
         <dependency>
             <groupId>com.chengliuxiang</groupId>
+            <artifactId>xiaochengshu-user-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.chengliuxiang</groupId>
             <artifactId>xiaochengshu-spring-boot-starter-jackson</artifactId>
         </dependency>
 
