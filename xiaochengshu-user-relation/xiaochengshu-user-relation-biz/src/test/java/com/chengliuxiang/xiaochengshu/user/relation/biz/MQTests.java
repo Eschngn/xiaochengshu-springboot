@@ -93,7 +93,7 @@ public class MQTests {
                 SendResult sendResult = rocketMQTemplate.syncSendOrderly(destination,message,hashKey);
 
                 log.info("==> MQ 发送结果，SendResult: {}", sendResult);
-            } else { // 取关发送取关 MQ
+            } else { // 奇数发送取关 MQ
                 log.info("{} 是奇数", i);
 
                 // 发送 MQ
