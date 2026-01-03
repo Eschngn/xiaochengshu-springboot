@@ -9,6 +9,7 @@ import com.chengliuxiang.xiaochengshu.user.relation.biz.domain.dataobject.Follow
 import com.chengliuxiang.xiaochengshu.user.relation.biz.domain.mapper.FansDOMapper;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.domain.mapper.FollowingDOMapper;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.model.dto.FollowUserMqDTO;
+import com.chengliuxiang.xiaochengshu.user.relation.biz.model.dto.UnfollowUserMqDTO;
 import com.google.common.util.concurrent.RateLimiter;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -53,7 +54,7 @@ public class FollowUnfollowConsumer implements RocketMQListener<Message> {
         if (Objects.equals(tags, MQConstants.TAG_FOLLOW)) { // 关注
             handleFollowTagMessage(bodyJsonStr);
         } else if (Objects.equals(tags, MQConstants.TAG_UNFOLLOW)) { // 取关
-
+            handleUnfollowTagMessage(bodyJsonStr);
         }
     }
 
@@ -85,12 +86,39 @@ public class FollowUnfollowConsumer implements RocketMQListener<Message> {
             return false;
         }));
         // 更新 Redis 中被关注用户的 ZSet 粉丝列表
-        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
-        script.setScriptSource(new ResourceScriptSource(new ClassPathResource("/lua/follow_check_and_update_fans.lua")));
-        script.setResultType(Long.class);
-        String fansRedisKey = RedisKeyConstants.buildUserFansKey(followUserId);
-        long timestamp = DateUtils.localDateTime2Timestamp(createTime);
-        redisTemplate.execute(script, Collections.singletonList(fansRedisKey), userId, timestamp);
+        if (isSuccess) {
+            DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+            script.setScriptSource(new ResourceScriptSource(new ClassPathResource("/lua/follow_check_and_update_fans.lua")));
+            script.setResultType(Long.class);
+            String fansRedisKey = RedisKeyConstants.buildUserFansKey(followUserId);
+            long timestamp = DateUtils.localDateTime2Timestamp(createTime);
+            redisTemplate.execute(script, Collections.singletonList(fansRedisKey), userId, timestamp);
+        }
+    }
 
+    private void handleUnfollowTagMessage(String bodyJsonStr) {
+        UnfollowUserMqDTO unfollowUserMqDTO = JsonUtils.parseObject(bodyJsonStr, UnfollowUserMqDTO.class);
+        if (Objects.isNull(unfollowUserMqDTO)) return;
+        Long userId = unfollowUserMqDTO.getUserId();
+        Long unfollowUserId = unfollowUserMqDTO.getUnfollowUserId();
+        LocalDateTime createTime = unfollowUserMqDTO.getCreateTime();
+
+        boolean isSuccess = Boolean.TRUE.equals(transactionTemplate.execute(status -> {
+            try {
+                int count = followingDOMapper.deleteByUserIdAndFollowingUserId(userId, unfollowUserId);
+                if (count > 0) {
+                    fansDOMapper.deleteByUserIdAndFansUserId(unfollowUserId, userId);
+                }
+                return true;
+            } catch (Exception e) {
+                status.setRollbackOnly();
+                log.error("", e);
+            }
+            return false;
+        }));
+        if(isSuccess){
+            String fansRedisKey = RedisKeyConstants.buildUserFansKey(unfollowUserId);
+            redisTemplate.opsForZSet().remove(fansRedisKey,userId);
+        }
     }
 }
