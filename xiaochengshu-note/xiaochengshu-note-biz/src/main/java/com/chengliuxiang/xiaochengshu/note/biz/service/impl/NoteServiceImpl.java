@@ -395,6 +395,14 @@ public class NoteServiceImpl implements NoteService {
     @Override
     public Response<?> visibleOnlyMe(UpdateNoteVisibleOnlyMeReqVO updateNoteVisibleOnlyMeReqVO) {
         Long noteId = updateNoteVisibleOnlyMeReqVO.getId();
+        NoteDO selectNoteDO = noteDOMapper.selectByPrimaryKey(noteId);
+        if (Objects.isNull(selectNoteDO)) {
+            throw new BizException(ResponseCodeEnum.NOTE_NOT_FOUND);
+        }
+        Long currUserId = LoginUserContextHolder.getUserId();
+        if (!Objects.equals(selectNoteDO.getCreatorId(), currUserId)) {
+            throw new BizException(ResponseCodeEnum.NOTE_CANT_OPERATE);
+        }
         NoteDO noteDO = NoteDO.builder()
                 .id(noteId)
                 .visible(NoteVisibleEnum.PRIVATE.getCode())
