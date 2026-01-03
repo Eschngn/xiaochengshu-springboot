@@ -10,6 +10,7 @@ public enum LuaResultEnum {
     FOLLOW_LIMIT(-2L),
     ALREADY_FOLLOWED(-3L),
     FOLLOW_SUCCESS(0L),
+    NOT_FOLLOWED(-4L)
     ;
 
     private final Long code;

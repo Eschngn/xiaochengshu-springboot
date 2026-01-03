@@ -15,7 +15,9 @@ import com.chengliuxiang.xiaochengshu.user.relation.biz.domain.mapper.FollowingD
 import com.chengliuxiang.xiaochengshu.user.relation.biz.enums.LuaResultEnum;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.enums.ResponseCodeEnum;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.model.dto.FollowUserMqDTO;
+import com.chengliuxiang.xiaochengshu.user.relation.biz.model.dto.UnfollowUserMqDTO;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.model.vo.FollowUserReqVO;
+import com.chengliuxiang.xiaochengshu.user.relation.biz.model.vo.UnfollowUserReqVO;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.rpc.UserRpcService;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.service.RelationService;
 import jakarta.annotation.Resource;
@@ -111,9 +113,71 @@ public class RelationServiceImpl implements RelationService {
             public void onSuccess(SendResult sendResult) {
                 log.info("==> MQ 发送成功，SendResult: {}", sendResult);
             }
+
             @Override
             public void onException(Throwable throwable) {
                 log.error("==> MQ 发送异常: ", throwable);
+            }
+        });
+        return Response.success();
+    }
+
+    @Override
+    public Response<?> unfollow(UnfollowUserReqVO unfollowUserReqVO) {
+        Long unfollowUserId = unfollowUserReqVO.getUnfollowUserId();
+        Long userId = LoginUserContextHolder.getUserId();
+        if (Objects.equals(unfollowUserId, userId)) {
+            throw new BizException(ResponseCodeEnum.CANT_UNFOLLOW_YOUR_SELF);
+        }
+        // 校验取关的用户是否存在
+        FindUserByIdRspDTO findUserByIdRspDTO = userRpcService.findUserById(unfollowUserId);
+        if (Objects.isNull(findUserByIdRspDTO)) {
+            throw new BizException(ResponseCodeEnum.UNFOLLOW_USER_NOT_EXISTED);
+        }
+        String followingRedisKey = RedisKeyConstants.buildUserFollowingKey(userId);
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+        script.setResultType(Long.class);
+        script.setScriptSource(new ResourceScriptSource(new ClassPathResource("/lua/unfollow_check_and_delete.lua")));
+        Long result = redisTemplate.execute(script, Collections.singletonList(followingRedisKey), unfollowUserId);
+        if (Objects.equals(result, LuaResultEnum.NOT_FOLLOWED.getCode())) {
+            throw new BizException(ResponseCodeEnum.NOT_FOLLOWED); // 取关的用户不在关注列表
+        }
+        if (Objects.equals(result, LuaResultEnum.ZSET_NOT_EXIST.getCode())) { // ZSET 关注列表不存在
+            List<FollowingDO> followingDOS = followingDOMapper.selectByUserId(userId);
+            long expireSeconds = 60 * 60 * 24 + RandomUtil.randomInt(60 * 60 * 24);
+            if (CollUtil.isEmpty(followingDOS)) {
+                throw new BizException(ResponseCodeEnum.NOT_FOLLOWED);
+            } else { // 若数据库中关注记录存在，则全量同步到 Redis 中，并设置过期时间
+                Object[] luaArgs = buildLuaArgs(followingDOS, expireSeconds);
+                DefaultRedisScript<Long> script2 = new DefaultRedisScript<>();
+                script2.setResultType(Long.class);
+                script2.setScriptSource(new ResourceScriptSource(new ClassPathResource("/lua/follow_batch_add_and_expire.lua")));
+                redisTemplate.execute(script, Collections.singletonList(followingRedisKey), luaArgs);
+                // 再次调用上面的 Lua 脚本，将取关的用户从 zset 列表中移除
+                result = redisTemplate.execute(script, Collections.singletonList(followingRedisKey), unfollowUserId);
+                if (Objects.equals(result, LuaResultEnum.NOT_FOLLOWED.getCode())) { // 再次校验结果
+                    throw new BizException(ResponseCodeEnum.NOT_FOLLOWED); // 取关的用户不在关注列表
+                }
+            }
+        }
+
+        UnfollowUserMqDTO unfollowUserMqDTO = UnfollowUserMqDTO.builder()
+                .userId(userId)
+                .unfollowUserId(unfollowUserId)
+                .createTime(LocalDateTime.now())
+                .build();
+        Message<String> message = MessageBuilder.withPayload(JsonUtils.toJsonString(unfollowUserMqDTO)).build();
+        String destination = MQConstants.TOPIC_FOLLOW_OR_UNFOLLOW + ":" + MQConstants.TAG_UNFOLLOW;
+        log.info("==> 开始发送取关操作 MQ，消息体:{}", unfollowUserMqDTO);
+        rocketMQTemplate.asyncSend(destination, message, new SendCallback() {
+            @Override
+            public void onSuccess(SendResult sendResult) {
+                log.info("==> MQ 发送成功，SendResult: {}", sendResult);
+            }
+
+            @Override
+            public void onException(Throwable throwable) {
+                log.info("==> MQ 发送异常:", throwable);
             }
         });
         return Response.success();

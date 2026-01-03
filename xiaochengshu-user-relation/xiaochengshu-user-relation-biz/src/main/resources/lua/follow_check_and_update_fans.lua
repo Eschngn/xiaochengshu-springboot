@@ -10,7 +10,7 @@ local timestamp = ARGV[2]
 
 -- 使用 EXISTS 命令检查 ZSET 粉丝列表是否存在
 local exists = redis.call('EXISTS', key)
-if (exists == 0) then
+if exists == 0 then
     return -1
 end
 
