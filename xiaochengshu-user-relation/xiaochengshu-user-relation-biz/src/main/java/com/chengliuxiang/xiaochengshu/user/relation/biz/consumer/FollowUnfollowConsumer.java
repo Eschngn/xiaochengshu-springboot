@@ -14,6 +14,7 @@ import com.google.common.util.concurrent.RateLimiter;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.common.message.Message;
+import org.apache.rocketmq.spring.annotation.ConsumeMode;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.apache.rocketmq.spring.core.RocketMQListener;
 import org.springframework.core.io.ClassPathResource;
@@ -29,7 +30,9 @@ import java.util.Objects;
 
 @Component
 @RocketMQMessageListener(consumerGroup = "xiaochengshu_group",
-        topic = MQConstants.TOPIC_FOLLOW_OR_UNFOLLOW)
+        topic = MQConstants.TOPIC_FOLLOW_OR_UNFOLLOW,
+        consumeMode = ConsumeMode.ORDERLY // 设置为顺序消费模式
+)
 @Slf4j
 public class FollowUnfollowConsumer implements RocketMQListener<Message> {
     @Resource
@@ -116,9 +119,9 @@ public class FollowUnfollowConsumer implements RocketMQListener<Message> {
             }
             return false;
         }));
-        if(isSuccess){
+        if (isSuccess) {
             String fansRedisKey = RedisKeyConstants.buildUserFansKey(unfollowUserId);
-            redisTemplate.opsForZSet().remove(fansRedisKey,userId);
+            redisTemplate.opsForZSet().remove(fansRedisKey, userId);
         }
     }
 }
