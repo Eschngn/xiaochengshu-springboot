@@ -4,6 +4,7 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.RandomUtil;
 import com.chengliuxiang.framework.biz.context.holder.LoginUserContextHolder;
 import com.chengliuxiang.framework.common.exception.BizException;
+import com.chengliuxiang.framework.common.response.PageResponse;
 import com.chengliuxiang.framework.common.response.Response;
 import com.chengliuxiang.framework.common.util.DateUtils;
 import com.chengliuxiang.framework.common.util.JsonUtils;
@@ -16,10 +17,13 @@ import com.chengliuxiang.xiaochengshu.user.relation.biz.enums.LuaResultEnum;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.enums.ResponseCodeEnum;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.model.dto.FollowUserMqDTO;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.model.dto.UnfollowUserMqDTO;
+import com.chengliuxiang.xiaochengshu.user.relation.biz.model.vo.FindFollowingListReqVO;
+import com.chengliuxiang.xiaochengshu.user.relation.biz.model.vo.FindFollowingUserRspVO;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.model.vo.FollowUserReqVO;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.model.vo.UnfollowUserReqVO;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.rpc.UserRpcService;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.service.RelationService;
+import com.google.common.collect.Lists;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.producer.SendCallback;
@@ -37,6 +41,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 @Slf4j
@@ -221,5 +226,40 @@ public class RelationServiceImpl implements RelationService {
             // 已经关注了该用户
             case ALREADY_FOLLOWED -> throw new BizException(ResponseCodeEnum.ALREADY_FOLLOWED);
         }
+    }
+
+    @Override
+    public PageResponse<FindFollowingUserRspVO> findFollowingList(FindFollowingListReqVO findFollowingListReqVO) {
+        Long userId = findFollowingListReqVO.getUserId();
+        Integer pageNo = findFollowingListReqVO.getPageNo();
+        // 先从 Redis 中查
+        String followingListRedisKey = RedisKeyConstants.buildUserFollowingKey(userId);
+        Long totalCount = redisTemplate.opsForZSet().zCard(followingListRedisKey);
+        List<FindFollowingUserRspVO> findFollowingUserRspVOS = Lists.newArrayList();
+        if (totalCount != null && totalCount > 0) { // 缓存中有数据
+            long limit = 10; // 每页展示 10 条数据
+            long totalPage = PageResponse.getTotalPage(totalCount, limit); // 总页数
+            if (pageNo > totalPage) return PageResponse.success(null, pageNo, totalCount);
+
+            long offset = (pageNo - 1) * limit;
+            Set<Object> followingUserIdsSet = redisTemplate.opsForZSet()
+                    .reverseRangeByScore(followingListRedisKey, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, offset, limit);
+            if (CollUtil.isNotEmpty(followingUserIdsSet)) {
+                List<Long> userIds = followingUserIdsSet.stream().map(object -> Long.valueOf(object.toString())).toList();
+                List<FindUserByIdRspDTO> findUserByIdRspDTOS = userRpcService.findByIds(userIds);
+                if (CollUtil.isNotEmpty(findUserByIdRspDTOS)) {
+                    findFollowingUserRspVOS = findUserByIdRspDTOS.stream()
+                            .map(dto -> FindFollowingUserRspVO.builder()
+                                    .userId(dto.getId())
+                                    .nickname(dto.getNickName())
+                                    .avatar(dto.getAvatar())
+                                    .introduction(dto.getIntroduction())
+                                    .build()).toList();
+                }
+            } else {
+
+            }
+        }
+        return PageResponse.success(findFollowingUserRspVOS, pageNo, totalCount);
     }
 }
