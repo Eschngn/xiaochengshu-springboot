@@ -149,7 +149,7 @@ public class RelationServiceImpl implements RelationService {
         script.setScriptSource(new ResourceScriptSource(new ClassPathResource("/lua/unfollow_check_and_delete.lua")));
         Long result = redisTemplate.execute(script, Collections.singletonList(followingRedisKey), unfollowUserId);
         if (Objects.equals(result, LuaResultEnum.NOT_FOLLOWED.getCode())) {
-            throw new BizException(ResponseCodeEnum.NOT_FOLLOWED); // 取关的用户不在关注列表
+            throw new BizException(ResponseCodeEnum.NOT_FOLLOWED); // 未关注，无法取关
         }
         if (Objects.equals(result, LuaResultEnum.ZSET_NOT_EXIST.getCode())) { // ZSET 关注列表不存在
             List<FollowingDO> followingDOS = followingDOMapper.selectByUserId(userId);
