@@ -11,16 +11,15 @@ import com.chengliuxiang.framework.common.util.JsonUtils;
 import com.chengliuxiang.xiaochengshu.user.dto.resp.FindUserByIdRspDTO;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.constant.MQConstants;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.constant.RedisKeyConstants;
+import com.chengliuxiang.xiaochengshu.user.relation.biz.domain.dataobject.FansDO;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.domain.dataobject.FollowingDO;
+import com.chengliuxiang.xiaochengshu.user.relation.biz.domain.mapper.FansDOMapper;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.domain.mapper.FollowingDOMapper;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.enums.LuaResultEnum;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.enums.ResponseCodeEnum;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.model.dto.FollowUserMqDTO;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.model.dto.UnfollowUserMqDTO;
-import com.chengliuxiang.xiaochengshu.user.relation.biz.model.vo.FindFollowingListReqVO;
-import com.chengliuxiang.xiaochengshu.user.relation.biz.model.vo.FindFollowingUserRspVO;
-import com.chengliuxiang.xiaochengshu.user.relation.biz.model.vo.FollowUserReqVO;
-import com.chengliuxiang.xiaochengshu.user.relation.biz.model.vo.UnfollowUserReqVO;
+import com.chengliuxiang.xiaochengshu.user.relation.biz.model.vo.*;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.rpc.UserRpcService;
 import com.chengliuxiang.xiaochengshu.user.relation.biz.service.RelationService;
 import com.google.common.collect.Lists;
@@ -53,6 +52,8 @@ public class RelationServiceImpl implements RelationService {
     private RedisTemplate<String, Object> redisTemplate;
     @Resource
     private FollowingDOMapper followingDOMapper;
+    @Resource
+    private FansDOMapper fansDOMapper;
     @Resource
     private RocketMQTemplate rocketMQTemplate;
     @Resource(name = "taskExecutor")
@@ -97,7 +98,7 @@ public class RelationServiceImpl implements RelationService {
                 // 如何判断呢？可以从计数服务获取用户的粉丝数，目前计数服务还没创建，则暂时采用统一的过期策略
                 redisTemplate.execute(script2, Collections.singletonList(followingRedisKey), followUserId, timestamp, expireSeconds);
             } else { // 若数据库中记录不为空，则将关注关系数据全量同步到 Redis 中，并设置过期时间；
-                Object[] luaArgs = buildLuaArgs(followingDOS, expireSeconds);
+                Object[] luaArgs = buildFollowingZSetLuaArgs(followingDOS, expireSeconds);
                 DefaultRedisScript<Long> script3 = new DefaultRedisScript<>();
                 script3.setScriptSource(new ResourceScriptSource(new ClassPathResource("/lua/follow_batch_add_and_expire.lua")));
                 script3.setResultType(Long.class);
@@ -157,11 +158,11 @@ public class RelationServiceImpl implements RelationService {
             if (CollUtil.isEmpty(followingDOS)) {
                 throw new BizException(ResponseCodeEnum.NOT_FOLLOWED);
             } else { // 若数据库中关注记录存在，则全量同步到 Redis 中，并设置过期时间
-                Object[] luaArgs = buildLuaArgs(followingDOS, expireSeconds);
+                Object[] luaArgs = buildFollowingZSetLuaArgs(followingDOS, expireSeconds);
                 DefaultRedisScript<Long> script2 = new DefaultRedisScript<>();
                 script2.setResultType(Long.class);
                 script2.setScriptSource(new ResourceScriptSource(new ClassPathResource("/lua/follow_batch_add_and_expire.lua")));
-                redisTemplate.execute(script, Collections.singletonList(followingRedisKey), luaArgs);
+                redisTemplate.execute(script2, Collections.singletonList(followingRedisKey), luaArgs);
                 // 再次调用上面的 Lua 脚本，将取关的用户从 zset 列表中移除
                 result = redisTemplate.execute(script, Collections.singletonList(followingRedisKey), unfollowUserId);
                 if (Objects.equals(result, LuaResultEnum.NOT_FOLLOWED.getCode())) { // 再次校验结果
@@ -200,7 +201,7 @@ public class RelationServiceImpl implements RelationService {
      * @param expireSeconds
      * @return
      */
-    private static Object[] buildLuaArgs(List<FollowingDO> followingDOS, long expireSeconds) {
+    private static Object[] buildFollowingZSetLuaArgs(List<FollowingDO> followingDOS, long expireSeconds) {
         int argsLength = followingDOS.size() * 2 + 1;
         Object[] luaArgs = new Object[argsLength];
         int i = 0;
@@ -258,11 +259,11 @@ public class RelationServiceImpl implements RelationService {
             long offset = PageResponse.getOffset(pageNo, pageSize);
             List<FollowingDO> followingDOS = followingDOMapper.selectPageListByUserId(userId, offset, pageSize);
             totalCount = count;
-            if(CollUtil.isNotEmpty(followingDOS)){
+            if (CollUtil.isNotEmpty(followingDOS)) {
                 List<Long> userIds = followingDOS.stream().map(FollowingDO::getFollowingUserId).toList();
                 findFollowingUserRspVOS = rpcUserServiceAndDTO2VO(userIds, findFollowingUserRspVOS);
                 // 异步将关注列表全量同步到 Redis 中
-                threadPoolTaskExecutor.submit(()->syncFollowingList2Redis(userId));
+                threadPoolTaskExecutor.submit(() -> syncFollowingList2Redis(userId));
             }
         }
         return PageResponse.success(findFollowingUserRspVOS, pageNo, totalCount);
@@ -287,14 +288,91 @@ public class RelationServiceImpl implements RelationService {
      */
     private void syncFollowingList2Redis(Long userId) {
         List<FollowingDO> followingDOS = followingDOMapper.selectAllByUserId(userId);
-        if(CollUtil.isNotEmpty(followingDOS)){
+        if (CollUtil.isNotEmpty(followingDOS)) {
             String followingListRedisKey = RedisKeyConstants.buildUserFollowingKey(userId);
-            long expireSeconds = 60*60*24 + RandomUtil.randomInt(60*60*24);
-            Object[] luaArgs=buildLuaArgs(followingDOS, expireSeconds);
+            long expireSeconds = 60 * 60 * 24 + RandomUtil.randomInt(60 * 60 * 24);
+            Object[] luaArgs = buildFollowingZSetLuaArgs(followingDOS, expireSeconds);
             DefaultRedisScript<Long> script = new DefaultRedisScript<>();
             script.setScriptSource(new ResourceScriptSource(new ClassPathResource("/lua/follow_batch_add_and_expire.lua")));
             script.setResultType(Long.class);
             redisTemplate.execute(script, Collections.singletonList(followingListRedisKey), luaArgs);
         }
+    }
+
+    @Override
+    public PageResponse<FindFansUserRspVO> findFansList(FindFansListReqVO findFansListReqVO) {
+        Long userId = findFansListReqVO.getUserId();
+        Integer pageNo = findFansListReqVO.getPageNo();
+        String fansListRedisKey = RedisKeyConstants.buildUserFansKey(userId);
+        Long totalCount = redisTemplate.opsForZSet().zCard(fansListRedisKey);
+        List<FindFansUserRspVO> findFansUserRspVOS = Lists.newArrayList();
+        long pageSize = 10;
+        if (totalCount != null && totalCount > 0) { // Redis 中有用户的粉丝列表数据
+            long totalPage = PageResponse.getTotalPage(totalCount, pageSize);
+            if (pageNo > totalPage) return PageResponse.success(null, pageSize, totalCount);
+            long offset = PageResponse.getOffset(pageNo, pageSize);
+            Set<Object> followingUserIdsSet = redisTemplate.opsForZSet()
+                    .reverseRangeByScore(fansListRedisKey, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, offset, pageSize);
+            if (CollUtil.isNotEmpty(followingUserIdsSet)) {
+                List<Long> userIds = followingUserIdsSet.stream().map(object -> Long.valueOf(object.toString())).toList();
+                findFansUserRspVOS = rpcUserServiceAndCountServiceAndDTO2VO(userIds, findFansUserRspVOS);
+            }
+        } else { // Redis 中无数据 则查询数据库
+            totalCount = fansDOMapper.selectCountByUserId(userId);
+            long totalPage = PageResponse.getTotalPage(totalCount, pageSize);
+            if (pageNo > 500 || pageNo > totalPage)
+                return PageResponse.success(null, pageNo, totalCount); // 只允许查询前 500 页
+            long offset = PageResponse.getOffset(pageNo, pageSize);
+            List<FansDO> fansDOS = fansDOMapper.selectPageListByUserId(userId, offset, pageSize);
+            if (CollUtil.isNotEmpty(fansDOS)) {
+                List<Long> userIds = fansDOS.stream().map(FansDO::getId).toList();
+                findFansUserRspVOS = rpcUserServiceAndCountServiceAndDTO2VO(userIds, findFansUserRspVOS);
+                // 异步将粉丝列表同步到 Redis（最多5000条）
+                threadPoolTaskExecutor.submit(() -> syncFansList2Redis(userId));
+            }
+        }
+        return PageResponse.success(findFansUserRspVOS, pageNo, totalCount);
+    }
+
+    private List<FindFansUserRspVO> rpcUserServiceAndCountServiceAndDTO2VO(List<Long> userIdds, List<FindFansUserRspVO> findFansUserRspVOS) {
+        List<FindUserByIdRspDTO> findUserByIdRspDTOS = userRpcService.findByIds(userIdds);
+        // TODO RPC: 批量查询用户的计数数据（笔记总数、粉丝总数）
+        if (CollUtil.isNotEmpty(findUserByIdRspDTOS)) {
+            findFansUserRspVOS = findUserByIdRspDTOS.stream()
+                    .map(dto -> FindFansUserRspVO.builder()
+                            .userId(dto.getId())
+                            .nickname(dto.getNickName())
+                            .avatar(dto.getAvatar())
+                            .fansTotal(0L) // TODO: 这块的数据暂无，后续补充
+                            .noteTotal(0L) // TODO: 这块的数据暂无，后续补充
+                            .build()).toList();
+        }
+        return findFansUserRspVOS;
+    }
+
+    private void syncFansList2Redis(Long userId) {
+        List<FansDO> fansDOS = fansDOMapper.select5000FansByUserId(userId);
+        if (CollUtil.isNotEmpty(fansDOS)) {
+            String fansListRedisKey = RedisKeyConstants.buildUserFansKey(userId);
+            long expireSeconds = 60 * 60 * 24 + RandomUtil.randomInt(60 * 60 * 24);
+            Object[] luaArgs = buildFansZSetLuaArgs(fansDOS, expireSeconds);
+            DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+            script.setResultType(Long.class);
+            script.setScriptSource(new ResourceScriptSource(new ClassPathResource("/lua/follow_batch_add_and_expire.lua")));
+            redisTemplate.execute(script, Collections.singletonList(fansListRedisKey), luaArgs);
+        }
+    }
+
+    private Object[] buildFansZSetLuaArgs(List<FansDO> fansDOS, long expireSeconds) {
+        int argsLength = fansDOS.size() * 2 + 1;
+        Object[] luaArgs = new Object[argsLength];
+        int i = 0;
+        for (FansDO fansDO : fansDOS) {
+            luaArgs[i] = DateUtils.localDateTime2Timestamp(fansDO.getCreateTime());
+            luaArgs[i + 1] = fansDO.getFansUserId();
+            i += 2;
+        }
+        luaArgs[argsLength - 1] = expireSeconds;
+        return luaArgs;
     }
 }

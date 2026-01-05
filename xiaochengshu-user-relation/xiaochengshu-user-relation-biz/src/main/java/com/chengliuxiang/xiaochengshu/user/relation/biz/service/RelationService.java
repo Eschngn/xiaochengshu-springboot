@@ -2,10 +2,7 @@ package com.chengliuxiang.xiaochengshu.user.relation.biz.service;
 
 import com.chengliuxiang.framework.common.response.PageResponse;
 import com.chengliuxiang.framework.common.response.Response;
-import com.chengliuxiang.xiaochengshu.user.relation.biz.model.vo.FindFollowingListReqVO;
-import com.chengliuxiang.xiaochengshu.user.relation.biz.model.vo.FindFollowingUserRspVO;
-import com.chengliuxiang.xiaochengshu.user.relation.biz.model.vo.FollowUserReqVO;
-import com.chengliuxiang.xiaochengshu.user.relation.biz.model.vo.UnfollowUserReqVO;
+import com.chengliuxiang.xiaochengshu.user.relation.biz.model.vo.*;
 
 public interface RelationService {
     /**
@@ -28,4 +25,11 @@ public interface RelationService {
      * @return
      */
     PageResponse<FindFollowingUserRspVO> findFollowingList(FindFollowingListReqVO findFollowingListReqVO);
+
+    /**
+     * 查询粉丝列表
+     * @param findFansListReqVO
+     * @return
+     */
+    PageResponse<FindFansUserRspVO> findFansList(FindFansListReqVO findFansListReqVO);
 }
