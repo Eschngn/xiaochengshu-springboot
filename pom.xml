@@ -20,6 +20,7 @@
         <module>xiaochengshu-kv</module>
         <module>xiaochengshu-note</module>
         <module>xiaochengshu-user-relation</module>
+        <module>xiaochengshu-count</module>
     </modules>
 
     <properties>
