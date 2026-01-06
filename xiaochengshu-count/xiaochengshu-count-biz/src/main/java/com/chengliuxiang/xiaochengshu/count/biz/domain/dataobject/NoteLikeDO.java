@@ -5,18 +5,20 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Date;
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class NoteCountDO {
+public class NoteLikeDO {
     private Long id;
+
+    private Long userId;
 
     private Long noteId;
 
-    private Long likeTotal;
+    private Date createTime;
 
-    private Long collectTotal;
-
-    private Long commentTotal;
+    private Byte status;
 }

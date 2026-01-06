@@ -9,14 +9,18 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class NoteCountDO {
+public class UserCountDO {
     private Long id;
 
-    private Long noteId;
+    private Long userId;
+
+    private Long fansTotal;
+
+    private Long followingTotal;
+
+    private Long noteTotal;
 
     private Long likeTotal;
 
     private Long collectTotal;
-
-    private Long commentTotal;
 }
