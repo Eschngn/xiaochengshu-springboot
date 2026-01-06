@@ -29,7 +29,7 @@ import java.util.Collections;
 import java.util.Objects;
 
 @Component
-@RocketMQMessageListener(consumerGroup = "xiaochengshu_group",
+@RocketMQMessageListener(consumerGroup = "xiaochengshu_group"+MQConstants.TOPIC_FOLLOW_OR_UNFOLLOW,
         topic = MQConstants.TOPIC_FOLLOW_OR_UNFOLLOW,
         consumeMode = ConsumeMode.ORDERLY // 设置为顺序消费模式
 )
