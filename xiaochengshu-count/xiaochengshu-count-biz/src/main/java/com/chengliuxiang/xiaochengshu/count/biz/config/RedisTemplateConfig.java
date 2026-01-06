@@ -1,4 +1,4 @@
-package com.chengliuxiang.count.biz.config;
+package com.chengliuxiang.xiaochengshu.count.biz.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

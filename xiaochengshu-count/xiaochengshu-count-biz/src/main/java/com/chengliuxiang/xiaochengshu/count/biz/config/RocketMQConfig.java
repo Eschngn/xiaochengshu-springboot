@@ -1,4 +1,4 @@
-package com.chengliuxiang.count.biz.config;
+package com.chengliuxiang.xiaochengshu.count.biz.config;
 
 import org.apache.rocketmq.spring.autoconfigure.RocketMQAutoConfiguration;
 import org.springframework.context.annotation.Configuration;
