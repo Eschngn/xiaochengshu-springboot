@@ -57,10 +57,8 @@ public class CountFansConsumer implements RocketMQListener<String> {
                 FollowUnfollowTypeEnum followUnfollowTypeEnum = FollowUnfollowTypeEnum.valueOf(type);
                 if (Objects.isNull(followUnfollowTypeEnum)) continue;
                 switch (followUnfollowTypeEnum) {
-                    case FOLLOW:
-                        finalCount += 1;
-                    case UNFOLLOW:
-                        finalCount -= 1;
+                    case FOLLOW -> finalCount += 1;
+                    case UNFOLLOW -> finalCount -= 1;
                 }
             }
             countMap.put(entry.getKey(), finalCount);
