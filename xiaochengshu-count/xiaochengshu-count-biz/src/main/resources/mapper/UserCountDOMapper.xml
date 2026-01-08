@@ -114,4 +114,10 @@
       collect_total = #{collectTotal,jdbcType=BIGINT}
     where id = #{id,jdbcType=BIGINT}
   </update>
+
+  <insert id="insertOrUpdateFansTotalByUserId" parameterType="map">
+    insert into t_user_count (user_id, fans_total)
+    values (#{userId}, #{count}) on duplicate key
+    update fans_total=fans_total+(#{count});
+  </insert>
 </mapper>
