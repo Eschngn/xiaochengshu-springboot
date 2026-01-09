@@ -17,4 +17,6 @@ public interface UserCountDOMapper {
     int updateByPrimaryKey(UserCountDO record);
 
     int insertOrUpdateFansTotalByUserId(@Param("count") Integer count, @Param("userId") Long userId);
+
+    int insertOrUpdateFollowingTotalByUserId(@Param("count") Integer count, @Param("userId") Long userId);
 }

@@ -5,6 +5,8 @@ public class RedisKeyConstants {
 
     public static final String FIELD_FANS_TOTAL = "fansTotal";
 
+    public static final String FIElD_FOLLOWING_TOTAL = "followingTotal";
+
     public static String buildCountUserKey(Long userId) {
         return COUNT_USER_KEY_PREFIX + userId;
     }
