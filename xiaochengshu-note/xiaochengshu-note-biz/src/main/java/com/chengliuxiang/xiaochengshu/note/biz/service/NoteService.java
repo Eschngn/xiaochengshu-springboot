@@ -19,4 +19,6 @@ public interface NoteService {
 
     Response<?> topNote(TopNoteReqVO topNoteReqVO);
 
+    Response<?> likeNote(LikeNoteReqVO likeNoteReqVO);
+
 }

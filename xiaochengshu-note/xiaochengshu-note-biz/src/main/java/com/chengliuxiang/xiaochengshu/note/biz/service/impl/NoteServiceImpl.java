@@ -11,10 +11,7 @@ import com.chengliuxiang.xiaochengshu.note.biz.constant.RedisKeyConstants;
 import com.chengliuxiang.xiaochengshu.note.biz.domain.dataobject.NoteDO;
 import com.chengliuxiang.xiaochengshu.note.biz.domain.mapper.NoteDOMapper;
 import com.chengliuxiang.xiaochengshu.note.biz.domain.mapper.TopicDOMapper;
-import com.chengliuxiang.xiaochengshu.note.biz.enums.NoteStatusEnum;
-import com.chengliuxiang.xiaochengshu.note.biz.enums.NoteTypeEnum;
-import com.chengliuxiang.xiaochengshu.note.biz.enums.NoteVisibleEnum;
-import com.chengliuxiang.xiaochengshu.note.biz.enums.ResponseCodeEnum;
+import com.chengliuxiang.xiaochengshu.note.biz.enums.*;
 import com.chengliuxiang.xiaochengshu.note.biz.model.vo.*;
 import com.chengliuxiang.xiaochengshu.note.biz.rpc.DistributedIdGeneratorRpcService;
 import com.chengliuxiang.xiaochengshu.note.biz.rpc.KeyValueRpcService;
@@ -32,12 +29,14 @@ import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -443,6 +442,48 @@ public class NoteServiceImpl implements NoteService {
         log.info("====> MQ：删除笔记本地缓存发送成功");
 
         return Response.success();
+    }
+
+    @Override
+    public Response<?> likeNote(LikeNoteReqVO likeNoteReqVO) {
+        Long noteId = likeNoteReqVO.getId();
+        checkNoteIsExist(noteId);
+        Long userId = LoginUserContextHolder.getUserId();
+        String bloomUserNoteLikeListRedisKey = RedisKeyConstants.buildBloomUserNoteLikeListKey(userId);
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+        script.setResultType(Long.class);
+        Long result = redisTemplate.execute(script, Collections.singletonList(bloomUserNoteLikeListRedisKey), noteId);
+        NoteLikeLuaResultEnum noteLikeLuaResultEnum = NoteLikeLuaResultEnum.valueOf(result);
+        switch (noteLikeLuaResultEnum) {
+            case BLOOM_NOT_EXIST -> {
+
+            }
+            case NOTE_LIKED -> throw new BizException(ResponseCodeEnum.NOTE_ALREADY_LIKED);
+        }
+        return Response.success();
+    }
+
+    private void checkNoteIsExist(Long noteId) {
+        String findNoteDetailRspVOStrLocalCache = LOCAL_CACHE.getIfPresent(noteId);
+        FindNoteDetailRspVO findNoteDetailRspVO = JsonUtils.parseObject(findNoteDetailRspVOStrLocalCache, FindNoteDetailRspVO.class);
+        if (Objects.isNull(findNoteDetailRspVO)) {
+            // 如果本地缓存没有，则从 Redis 中检查
+            String noteDetailRedisKey = RedisKeyConstants.buildNoteDetailKey(noteId);
+            String noteDetailJson = redisTemplate.opsForValue().get(noteDetailRedisKey);
+            findNoteDetailRspVO = JsonUtils.parseObject(noteDetailJson, FindNoteDetailRspVO.class);
+            if (Objects.isNull(findNoteDetailRspVO)) {
+                // Redis 中也没有，则从数据库中查询
+                int count = noteDOMapper.selectCountByNoteId(noteId);
+                if (count == 0) {
+                    throw new BizException(ResponseCodeEnum.NOTE_NOT_FOUND);
+                }
+                threadPoolTaskExecutor.submit(() -> {
+                    FindNoteDetailReqVO findNoteDetailReqVO = FindNoteDetailReqVO.builder().id(noteId).build();
+                    findNoteDetail(findNoteDetailReqVO);
+                });
+            }
+        }
+
     }
 
 
