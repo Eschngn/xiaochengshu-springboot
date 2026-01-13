@@ -1,6 +1,7 @@
-package com.chengliuxiang.xiaochengshu.count.biz.domain.mapper;
+package com.chengliuxiang.xiaochengshu.note.biz.domain.mapper;
 
-import com.chengliuxiang.xiaochengshu.count.biz.domain.dataobject.NoteLikeDO;
+import com.chengliuxiang.xiaochengshu.note.biz.domain.dataobject.NoteLikeDO;
+import org.apache.ibatis.annotations.Param;
 
 public interface NoteLikeDOMapper {
     int deleteByPrimaryKey(Long id);
@@ -14,4 +15,6 @@ public interface NoteLikeDOMapper {
     int updateByPrimaryKeySelective(NoteLikeDO record);
 
     int updateByPrimaryKey(NoteLikeDO record);
+
+    int selectCountByUserIdAndNoteId(@Param("userId") Long userId,@Param("noteId") Long noteId);
 }

@@ -10,6 +10,7 @@ import com.chengliuxiang.xiaochengshu.note.biz.constant.MQConstants;
 import com.chengliuxiang.xiaochengshu.note.biz.constant.RedisKeyConstants;
 import com.chengliuxiang.xiaochengshu.note.biz.domain.dataobject.NoteDO;
 import com.chengliuxiang.xiaochengshu.note.biz.domain.mapper.NoteDOMapper;
+import com.chengliuxiang.xiaochengshu.note.biz.domain.mapper.NoteLikeDOMapper;
 import com.chengliuxiang.xiaochengshu.note.biz.domain.mapper.TopicDOMapper;
 import com.chengliuxiang.xiaochengshu.note.biz.enums.*;
 import com.chengliuxiang.xiaochengshu.note.biz.model.vo.*;
@@ -63,6 +64,8 @@ public class NoteServiceImpl implements NoteService {
     private UserRpcService userRpcService;
     @Resource
     private RocketMQTemplate rocketMQTemplate;
+    @Resource
+    private NoteLikeDOMapper noteLikeDOMapper;
     /**
      * 笔记详情本地缓存
      */

@@ -1,6 +1,6 @@
-package com.chengliuxiang.xiaochengshu.count.biz.domain.mapper;
+package com.chengliuxiang.xiaochengshu.note.biz.domain.mapper;
 
-import com.chengliuxiang.xiaochengshu.count.biz.domain.dataobject.NoteCollectionDO;
+import com.chengliuxiang.xiaochengshu.note.biz.domain.dataobject.NoteCollectionDO;
 
 public interface NoteCollectionDOMapper {
     int deleteByPrimaryKey(Long id);

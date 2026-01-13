@@ -1,24 +1,26 @@
-package com.chengliuxiang.xiaochengshu.count.biz.domain.dataobject;
+package com.chengliuxiang.xiaochengshu.note.biz.domain.dataobject;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class NoteLikeDO {
+public class NoteCollectionDO {
     private Long id;
 
     private Long userId;
 
     private Long noteId;
 
-    private Date createTime;
+    private LocalDateTime createTime;
 
-    private Byte status;
+    private Integer status;
+
+
 }

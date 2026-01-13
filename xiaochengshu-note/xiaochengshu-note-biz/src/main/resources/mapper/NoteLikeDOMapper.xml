@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.chengliuxiang.xiaochengshu.count.biz.domain.mapper.NoteLikeDOMapper">
-  <resultMap id="BaseResultMap" type="com.chengliuxiang.xiaochengshu.count.biz.domain.dataobject.NoteLikeDO">
+<mapper namespace="com.chengliuxiang.xiaochengshu.note.biz.domain.mapper.NoteLikeDOMapper">
+  <resultMap id="BaseResultMap" type="com.chengliuxiang.xiaochengshu.note.biz.domain.dataobject.NoteLikeDO">
     <id column="id" jdbcType="BIGINT" property="id" />
     <result column="user_id" jdbcType="BIGINT" property="userId" />
     <result column="note_id" jdbcType="BIGINT" property="noteId" />
@@ -21,13 +21,13 @@
     delete from t_note_like
     where id = #{id,jdbcType=BIGINT}
   </delete>
-  <insert id="insert" parameterType="com.chengliuxiang.xiaochengshu.count.biz.domain.dataobject.NoteLikeDO">
+  <insert id="insert" parameterType="com.chengliuxiang.xiaochengshu.note.biz.domain.dataobject.NoteLikeDO">
     insert into t_note_like (id, user_id, note_id, 
       create_time, `status`)
     values (#{id,jdbcType=BIGINT}, #{userId,jdbcType=BIGINT}, #{noteId,jdbcType=BIGINT}, 
       #{createTime,jdbcType=TIMESTAMP}, #{status,jdbcType=TINYINT})
   </insert>
-  <insert id="insertSelective" parameterType="com.chengliuxiang.xiaochengshu.count.biz.domain.dataobject.NoteLikeDO">
+  <insert id="insertSelective" parameterType="com.chengliuxiang.xiaochengshu.note.biz.domain.dataobject.NoteLikeDO">
     insert into t_note_like
     <trim prefix="(" suffix=")" suffixOverrides=",">
       <if test="id != null">
@@ -64,7 +64,7 @@
       </if>
     </trim>
   </insert>
-  <update id="updateByPrimaryKeySelective" parameterType="com.chengliuxiang.xiaochengshu.count.biz.domain.dataobject.NoteLikeDO">
+  <update id="updateByPrimaryKeySelective" parameterType="com.chengliuxiang.xiaochengshu.note.biz.domain.dataobject.NoteLikeDO">
     update t_note_like
     <set>
       <if test="userId != null">
@@ -82,7 +82,7 @@
     </set>
     where id = #{id,jdbcType=BIGINT}
   </update>
-  <update id="updateByPrimaryKey" parameterType="com.chengliuxiang.xiaochengshu.count.biz.domain.dataobject.NoteLikeDO">
+  <update id="updateByPrimaryKey" parameterType="com.chengliuxiang.xiaochengshu.note.biz.domain.dataobject.NoteLikeDO">
     update t_note_like
     set user_id = #{userId,jdbcType=BIGINT},
       note_id = #{noteId,jdbcType=BIGINT},
@@ -90,4 +90,12 @@
       `status` = #{status,jdbcType=TINYINT}
     where id = #{id,jdbcType=BIGINT}
   </update>
+
+  <select id="selectCountByUserIdAndNoteId" resultType="int" parameterType="map">
+      select count(1)
+      from t_note_like
+      where user_id = #{userId}
+        and note_id = #{noteId}
+        and status = 1 limit 1
+  </select>
 </mapper>
