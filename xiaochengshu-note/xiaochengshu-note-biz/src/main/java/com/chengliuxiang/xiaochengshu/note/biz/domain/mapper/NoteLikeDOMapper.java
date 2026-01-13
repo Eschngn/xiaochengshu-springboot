@@ -3,6 +3,8 @@ package com.chengliuxiang.xiaochengshu.note.biz.domain.mapper;
 import com.chengliuxiang.xiaochengshu.note.biz.domain.dataobject.NoteLikeDO;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 public interface NoteLikeDOMapper {
     int deleteByPrimaryKey(Long id);
 
@@ -17,4 +19,6 @@ public interface NoteLikeDOMapper {
     int updateByPrimaryKey(NoteLikeDO record);
 
     int selectCountByUserIdAndNoteId(@Param("userId") Long userId,@Param("noteId") Long noteId);
+
+    List<NoteLikeDO> selectByUserId(@Param("userId") Long userId);
 }

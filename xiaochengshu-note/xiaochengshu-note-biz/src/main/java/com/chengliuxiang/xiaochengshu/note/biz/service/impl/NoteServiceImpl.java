@@ -9,6 +9,7 @@ import com.chengliuxiang.framework.common.util.JsonUtils;
 import com.chengliuxiang.xiaochengshu.note.biz.constant.MQConstants;
 import com.chengliuxiang.xiaochengshu.note.biz.constant.RedisKeyConstants;
 import com.chengliuxiang.xiaochengshu.note.biz.domain.dataobject.NoteDO;
+import com.chengliuxiang.xiaochengshu.note.biz.domain.dataobject.NoteLikeDO;
 import com.chengliuxiang.xiaochengshu.note.biz.domain.mapper.NoteDOMapper;
 import com.chengliuxiang.xiaochengshu.note.biz.domain.mapper.NoteLikeDOMapper;
 import com.chengliuxiang.xiaochengshu.note.biz.domain.mapper.TopicDOMapper;
@@ -22,6 +23,7 @@ import com.chengliuxiang.xiaochengshu.user.dto.resp.FindUserByIdRspDTO;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
 import jakarta.annotation.Resource;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -29,11 +31,13 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.scripting.support.ResourceScriptSource;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -455,11 +459,21 @@ public class NoteServiceImpl implements NoteService {
         String bloomUserNoteLikeListRedisKey = RedisKeyConstants.buildBloomUserNoteLikeListKey(userId);
         DefaultRedisScript<Long> script = new DefaultRedisScript<>();
         script.setResultType(Long.class);
+        script.setScriptSource(new ResourceScriptSource(new ClassPathResource("/lua/bloom_note_like_check.lua")));
         Long result = redisTemplate.execute(script, Collections.singletonList(bloomUserNoteLikeListRedisKey), noteId);
         NoteLikeLuaResultEnum noteLikeLuaResultEnum = NoteLikeLuaResultEnum.valueOf(result);
         switch (noteLikeLuaResultEnum) {
             case BLOOM_NOT_EXIST -> {
-
+                int count = noteLikeDOMapper.selectCountByUserIdAndNoteId(userId, noteId);
+                long expireSeconds = 60 * 60 * 24 + RandomUtil.randomInt(60 * 60 * 24);
+                if (count > 0) {
+                    // 异步初始化布隆过滤器
+                    asynBatchAddNoteLike2BloomAndExpire(userId, expireSeconds, bloomUserNoteLikeListRedisKey);
+                    throw new BizException(ResponseCodeEnum.NOTE_ALREADY_LIKED);
+                }
+                script.setScriptSource(new ResourceScriptSource(new ClassPathResource("lua/bloom_add_note_like_and_expire.lua")));
+                script.setResultType(Long.class);
+                redisTemplate.execute(script, Collections.singletonList(bloomUserNoteLikeListRedisKey), noteId, expireSeconds);
             }
             case NOTE_LIKED -> throw new BizException(ResponseCodeEnum.NOTE_ALREADY_LIKED);
         }
@@ -486,7 +500,25 @@ public class NoteServiceImpl implements NoteService {
                 });
             }
         }
+    }
 
+    private void asynBatchAddNoteLike2BloomAndExpire(Long userId, Long expireSeconds, String bloomUserNoteLikeListRedisKey) {
+        threadPoolTaskExecutor.submit(() -> {
+            try {
+                List<NoteLikeDO> noteLikeDOS = noteLikeDOMapper.selectByUserId(userId);
+                if (CollUtil.isNotEmpty(noteLikeDOS)) {
+                    DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+                    script.setResultType(Long.class);
+                    script.setScriptSource(new ResourceScriptSource(new ClassPathResource("lua/bloom_batch_add_note_like_and_expire.lua")));
+                    List<Object> luaArgs = Lists.newArrayList();
+                    noteLikeDOS.forEach(noteLikeDO -> luaArgs.add(noteLikeDO.getNoteId()));
+                    luaArgs.add(expireSeconds);
+                    redisTemplate.execute(script, Collections.singletonList(bloomUserNoteLikeListRedisKey), luaArgs.toArray());
+                }
+            } catch (Exception e) {
+                log.error("## 异步初始化布隆过滤器异常: ", e);
+            }
+        });
     }
 
 

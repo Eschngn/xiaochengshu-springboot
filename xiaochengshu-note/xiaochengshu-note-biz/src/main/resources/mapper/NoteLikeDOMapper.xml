@@ -98,4 +98,10 @@
         and note_id = #{noteId}
         and status = 1 limit 1
   </select>
+    <select id="selectByUserId" resultMap="BaseResultMap" parameterType="map">
+        select note_id
+        from t_note_like
+        where user_id = #{userId}
+          and status = 1
+    </select>
 </mapper>
