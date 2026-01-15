@@ -8,8 +8,8 @@ import java.util.Objects;
 @Getter
 @AllArgsConstructor
 public enum NoteLikeLuaResultEnum {
-    // 布隆过滤器不存在
-    BLOOM_NOT_EXIST(-1L),
+    // 布隆过滤器或者 ZSet 不存在
+    NOT_EXIST(-1L),
     // 笔记已点赞
     NOTE_LIKED(1L),
     ;

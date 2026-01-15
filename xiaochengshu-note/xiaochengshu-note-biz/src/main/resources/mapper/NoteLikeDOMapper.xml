@@ -104,4 +104,11 @@
         where user_id = #{userId}
           and status = 1
     </select>
+  <select id="selectByUserIdAndLimit" resultMap="BaseResultMap" parameterType="map">
+      select note_id, create_time
+      from t_note_like
+      where user_id = #{userId}
+        and status = 1
+      order by create_time desc limit #{limit}
+  </select>
 </mapper>
