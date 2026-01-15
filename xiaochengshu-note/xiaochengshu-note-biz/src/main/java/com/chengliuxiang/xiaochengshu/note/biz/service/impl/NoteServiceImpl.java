@@ -465,7 +465,7 @@ public class NoteServiceImpl implements NoteService {
         NoteLikeLuaResultEnum noteLikeLuaResultEnum = NoteLikeLuaResultEnum.valueOf(result);
         // 用户点赞列表 ZSet Key
         String userNoteLikeZSetRedisKey = RedisKeyConstants.buildUserNoteLikeZSetKey(userId);
-        switch (noteLikeLuaResultEnum) {
+        switch (Objects.requireNonNull(noteLikeLuaResultEnum)) {
             case NOT_EXIST -> { // Redis 中该用户的布隆过滤器不存在
                 int count = noteLikeDOMapper.selectCountByUserIdAndNoteId(userId, noteId);
                 long expireSeconds = 60 * 60 * 24 + RandomUtil.randomInt(60 * 60 * 24);

@@ -12,6 +12,8 @@ public enum NoteLikeLuaResultEnum {
     NOT_EXIST(-1L),
     // 笔记已点赞
     NOTE_LIKED(1L),
+    // 笔记点赞成功
+    NOTE_LIKE_SUCCESS(0L)
     ;
 
     private final Long code;
