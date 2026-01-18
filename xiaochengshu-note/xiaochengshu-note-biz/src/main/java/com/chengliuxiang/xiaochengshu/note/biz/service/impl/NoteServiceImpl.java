@@ -15,6 +15,7 @@ import com.chengliuxiang.xiaochengshu.note.biz.domain.mapper.NoteDOMapper;
 import com.chengliuxiang.xiaochengshu.note.biz.domain.mapper.NoteLikeDOMapper;
 import com.chengliuxiang.xiaochengshu.note.biz.domain.mapper.TopicDOMapper;
 import com.chengliuxiang.xiaochengshu.note.biz.enums.*;
+import com.chengliuxiang.xiaochengshu.note.biz.model.dto.LikeUnlikeNoteMqDTO;
 import com.chengliuxiang.xiaochengshu.note.biz.model.vo.*;
 import com.chengliuxiang.xiaochengshu.note.biz.rpc.DistributedIdGeneratorRpcService;
 import com.chengliuxiang.xiaochengshu.note.biz.rpc.KeyValueRpcService;
@@ -501,7 +502,7 @@ public class NoteServiceImpl implements NoteService {
         if (Objects.equals(result, NoteLikeLuaResultEnum.NOT_EXIST.getCode())) {
             List<NoteLikeDO> noteLikeDOS = noteLikeDOMapper.selectByUserIdAndLimit(userId, 100);
             long expireSeconds = 60 * 60 * 24 + RandomUtil.randomInt(60 * 60 * 24);
-            DefaultRedisScript<Long> script2=new DefaultRedisScript<>();
+            DefaultRedisScript<Long> script2 = new DefaultRedisScript<>();
             script2.setScriptSource(new ResourceScriptSource(new ClassPathResource("lua/batch_add_note_like_zset_and_expire.lua")));
             script2.setResultType(Long.class);
             if (CollUtil.isNotEmpty(noteLikeDOS)) {
@@ -509,7 +510,7 @@ public class NoteServiceImpl implements NoteService {
                 redisTemplate.execute(script2, Collections.singletonList(userNoteLikeZSetRedisKey), luaArgs);
                 // 再次调用 script 脚本，将最新的点赞的笔记添加到 ZSet 中
                 result = redisTemplate.execute(script, Collections.singletonList(userNoteLikeZSetRedisKey), noteId, DateUtils.localDateTime2Timestamp(now));
-            }else{ // 数据库中无该用户的点赞记录，直接将当前点赞的笔记 ID 添加到 ZSet 中，随机过期时间
+            } else { // 数据库中无该用户的点赞记录，直接将当前点赞的笔记 ID 添加到 ZSet 中，随机过期时间
                 List<Object> luaArgs = Lists.newArrayList();
                 luaArgs.add(DateUtils.localDateTime2Timestamp(LocalDateTime.now()));
                 luaArgs.add(noteId);
@@ -517,6 +518,27 @@ public class NoteServiceImpl implements NoteService {
                 redisTemplate.execute(script2, Collections.singletonList(userNoteLikeZSetRedisKey), luaArgs.toArray());
             }
         }
+
+        LikeUnlikeNoteMqDTO likeUnlikeNoteMqDTO = LikeUnlikeNoteMqDTO.builder()
+                .userId(userId)
+                .noteId(noteId)
+                .type(LikeUnlikeNoteTypeEnum.LIKE.getCode())
+                .createTime(now)
+                .build();
+        Message<String> message = MessageBuilder.withPayload(JsonUtils.toJsonString(likeUnlikeNoteMqDTO)).build();
+        String destination = MQConstants.TOPIC_LIKE_OR_UNLIKE + ":" + MQConstants.TAG_LIKE;
+        String hashKey = String.valueOf(userId);
+        rocketMQTemplate.asyncSendOrderly(destination, message, hashKey, new SendCallback() {
+            @Override
+            public void onSuccess(SendResult sendResult) {
+                log.info("==> 【笔记点赞】MQ 发送成功，SendResult: {}", sendResult);
+            }
+
+            @Override
+            public void onException(Throwable throwable) {
+                log.error("==> 【笔记点赞】MQ 发送异常: ", throwable);
+            }
+        });
 
         return Response.success();
     }
@@ -575,15 +597,15 @@ public class NoteServiceImpl implements NoteService {
         return luaArgs;
     }
 
-    private void asynInitUserNoteLikesZSet(Long userId,String userNoteLikeZSetRedisKey){
-        threadPoolTaskExecutor.execute(()->{
+    private void asynInitUserNoteLikesZSet(Long userId, String userNoteLikeZSetRedisKey) {
+        threadPoolTaskExecutor.execute(() -> {
             Boolean hasKey = redisTemplate.hasKey(userNoteLikeZSetRedisKey);
-            if(!hasKey){ // 不存在，则进行初始化
+            if (!hasKey) { // 不存在，则进行初始化
                 List<NoteLikeDO> noteLikeDOS = noteLikeDOMapper.selectByUserIdAndLimit(userId, 100);
-                if(CollUtil.isNotEmpty(noteLikeDOS)){
+                if (CollUtil.isNotEmpty(noteLikeDOS)) {
                     long expireSeconds = 60 * 60 * 24 + RandomUtil.randomInt(60 * 60 * 24);
                     Object[] luaArgs = buildNoteLikeZSetLuaArgs(noteLikeDOS, expireSeconds);
-                    DefaultRedisScript<Long> script2=new DefaultRedisScript<>();
+                    DefaultRedisScript<Long> script2 = new DefaultRedisScript<>();
                     script2.setScriptSource(new ResourceScriptSource(new ClassPathResource("lua/batch_add_note_like_zset_and_expire.lua")));
                     script2.setResultType(Long.class);
                     redisTemplate.execute(script2, Collections.singletonList(userNoteLikeZSetRedisKey), luaArgs);

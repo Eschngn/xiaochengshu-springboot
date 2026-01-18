@@ -1,4 +1,4 @@
-package com.chengliuxiang.xiaochengshu.note.biz.domain.dataobject;
+package com.chengliuxiang.xiaochengshu.note.biz.model.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,14 +11,15 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class NoteLikeDO {
-    private Long id;
-
+public class LikeUnlikeNoteMqDTO {
     private Long userId;
 
     private Long noteId;
 
-    private LocalDateTime createTime;
+    /**
+     * 0：取消点赞 1：点赞
+     */
+    private Integer type;
 
-    private Integer status;
+    private LocalDateTime createTime;
 }
