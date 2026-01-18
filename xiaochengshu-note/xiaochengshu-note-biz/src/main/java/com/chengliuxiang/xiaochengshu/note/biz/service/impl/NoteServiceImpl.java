@@ -623,7 +623,7 @@ public class NoteServiceImpl implements NoteService {
         Long noteId = unlikeNoteReqVO.getId();
         checkNoteIsExist(noteId);
         Long userId = LoginUserContextHolder.getUserId();
-        String bloomUserNoteLikeListKey = RedisKeyConstants.buildBloomUserNoteLikeListKey(noteId);
+        String bloomUserNoteLikeListKey = RedisKeyConstants.buildBloomUserNoteLikeListKey(userId);
         DefaultRedisScript<Long> script = new DefaultRedisScript<>();
         script.setResultType(Long.class);
         script.setScriptSource(new ResourceScriptSource(new ClassPathResource("lua/bloom_note_unlike_check.lua")));
@@ -640,12 +640,16 @@ public class NoteServiceImpl implements NoteService {
                 int count = noteLikeDOMapper.selectCountByUserIdAndNoteId(userId, noteId);
                 if (count == 0) throw new BizException(ResponseCodeEnum.NOTE_NOT_LIKED);
             }
+            case NOTE_LIKED -> {
+                // 布隆过滤器存在时，当用户点赞了该笔记，且在布隆过滤器过期之前，又取消了点赞，会存在误判（此时的未点赞判断成了已点赞）
+                // 需要从数据库中校验笔记是否被点赞
+                int count = noteLikeDOMapper.selectCountByUserIdAndNoteId(userId, noteId);
+                if (count == 0) throw new BizException(ResponseCodeEnum.NOTE_NOT_LIKED);
+            }
             // 布隆过滤器校验目标笔记未被点赞（返回为0，判断绝对正确）
             case NOTE_NOT_LIKED -> throw new BizException(ResponseCodeEnum.NOTE_NOT_LIKED);
         }
-        // 能走到这里，说明布隆过滤器判断已点赞，直接删除 ZSET 中已点赞的笔记 ID
-        // 这里已点赞的误判是能够容忍的，假设是误判的（实际数据库中的数据是未点赞的或没有点赞记录）
-        // 那么下面的代码的操作（删除 ZSET 中已点赞的笔记 ID以及数据库更新的落库）是无伤大雅的
+        // 能走到这里说明目标笔记一定是真实的已点赞的状态
         String userNoteLikeZSetKey = RedisKeyConstants.buildUserNoteLikeZSetKey(userId);
         script.setScriptSource(new ResourceScriptSource(new ClassPathResource(("/lua/note_like_check_and_update_zset.lua"))));
         script.setResultType(Long.class);
