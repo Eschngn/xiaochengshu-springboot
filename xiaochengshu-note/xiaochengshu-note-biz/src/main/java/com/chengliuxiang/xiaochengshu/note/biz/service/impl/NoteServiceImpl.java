@@ -495,7 +495,7 @@ public class NoteServiceImpl implements NoteService {
         }
         // 以下代码只有目标笔记真的未被点赞的情况才会走到
         LocalDateTime now = LocalDateTime.now();
-        script.setScriptSource(new ResourceScriptSource(new ClassPathResource("lua/note_lixke_check_and_update_zset.lua")));
+        script.setScriptSource(new ResourceScriptSource(new ClassPathResource("lua/note_like_check_and_update_zset.lua")));
         script.setResultType(Long.class);
         result = redisTemplate.execute(script, Collections.singletonList(userNoteLikeZSetRedisKey), noteId, DateUtils.localDateTime2Timestamp(now));
         if (Objects.equals(result, NoteLikeLuaResultEnum.NOT_EXIST.getCode())) {
