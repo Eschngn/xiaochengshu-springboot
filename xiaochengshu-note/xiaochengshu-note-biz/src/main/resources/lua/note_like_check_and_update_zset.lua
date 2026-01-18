@@ -6,16 +6,20 @@
 
 local key = KEYS[1]
 local noteId = ARGV[1]
-local timestamp = ARGV[2]
+local type = ARGV[2] -- 0：取消点赞 1：点赞
 
 local exists = redis.call('EXISTS', key)
 if exists == 0 then
     return -1
 end
+if (type == 1) then
+    local size = redis.call('ZCARD', key)
+    local timestamp = ARGV[3]
+    if (size >= 100) then
+        redis.call('ZPOPMIN', key)
+    end
 
-local size = redis.call('ZCARD', key)
-if (size >= 100) then
-    redis.call('ZPOPMIN', key)
+    redis.call('ZADD', key, timestamp, noteId)
+elseif (type == 2) then
+    redis.call('ZREM', key, noteId)
 end
-
-redis.call('ZADD', key, timestamp, noteId)

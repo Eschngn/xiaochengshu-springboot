@@ -501,7 +501,8 @@ public class NoteServiceImpl implements NoteService {
         LocalDateTime now = LocalDateTime.now();
         script.setScriptSource(new ResourceScriptSource(new ClassPathResource("lua/note_like_check_and_update_zset.lua")));
         script.setResultType(Long.class);
-        result = redisTemplate.execute(script, Collections.singletonList(userNoteLikeZSetRedisKey), noteId, DateUtils.localDateTime2Timestamp(now));
+        result = redisTemplate.execute(script, Collections.singletonList(userNoteLikeZSetRedisKey), noteId,
+                LikeUnlikeNoteTypeEnum.LIKE.getCode(), DateUtils.localDateTime2Timestamp(now));
         if (Objects.equals(result, NoteLikeLuaResultEnum.NOT_EXIST.getCode())) {
             List<NoteLikeDO> noteLikeDOS = noteLikeDOMapper.selectByUserIdAndLimit(userId, 100);
             long expireSeconds = 60 * 60 * 24 + RandomUtil.randomInt(60 * 60 * 24);
@@ -646,7 +647,22 @@ public class NoteServiceImpl implements NoteService {
         // 这里已点赞的误判是能够容忍的，假设是误判的（实际数据库中的数据是未点赞的或没有点赞记录）
         // 那么下面的代码的操作（删除 ZSET 中已点赞的笔记 ID以及数据库更新的落库）是无伤大雅的
         String userNoteLikeZSetKey = RedisKeyConstants.buildUserNoteLikeZSetKey(userId);
-        redisTemplate.opsForZSet().remove(userNoteLikeZSetKey, noteId);
+        script.setScriptSource(new ResourceScriptSource(new ClassPathResource(("/lua/note_like_check_and_update_zset.lua"))));
+        script.setResultType(Long.class);
+        result = redisTemplate.execute(script, Collections.singletonList(userNoteLikeZSetKey), noteId, LikeUnlikeNoteTypeEnum.UNLIKE.getCode());
+        if(Objects.equals(result,NoteLikeLuaResultEnum.NOT_EXIST.getCode())){
+            List<NoteLikeDO> noteLikeDOS = noteLikeDOMapper.selectByUserIdAndLimit(userId, 100);
+            long expireSeconds = 60 * 60 * 24 + RandomUtil.randomInt(60 * 60 * 24);
+            DefaultRedisScript<Long> script2 = new DefaultRedisScript<>();
+            script2.setScriptSource(new ResourceScriptSource(new ClassPathResource("lua/batch_add_note_like_zset_and_expire.lua")));
+            script2.setResultType(Long.class);
+            if (CollUtil.isNotEmpty(noteLikeDOS)) {
+                Object[] luaArgs = buildNoteLikeZSetLuaArgs(noteLikeDOS, expireSeconds);
+                redisTemplate.execute(script2, Collections.singletonList(userNoteLikeZSetKey), luaArgs);
+                redisTemplate.opsForZSet().remove(userNoteLikeZSetKey, noteId);
+            }
+        }
+
         LikeUnlikeNoteMqDTO likeUnlikeNoteMqDTO = LikeUnlikeNoteMqDTO.builder()
                 .userId(userId)
                 .noteId(noteId)
