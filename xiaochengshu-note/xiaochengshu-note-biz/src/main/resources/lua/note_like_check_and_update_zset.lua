@@ -6,7 +6,7 @@
 
 local key = KEYS[1]
 local noteId = ARGV[1]
-local type = ARGV[2] -- 0：取消点赞 1：点赞
+local type = tonumber(ARGV[2]) -- 0：取消点赞 1：点赞
 
 local exists = redis.call('EXISTS', key)
 if exists == 0 then
@@ -18,8 +18,7 @@ if (type == 1) then
     if (size >= 100) then
         redis.call('ZPOPMIN', key)
     end
-
     redis.call('ZADD', key, timestamp, noteId)
-elseif (type == 2) then
+elseif (type == 0) then
     redis.call('ZREM', key, noteId)
 end
