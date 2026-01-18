@@ -118,4 +118,14 @@
       update
           create_time=#{createTime},status=#{status}
   </insert>
+
+  <update id="update2UnlikeByUserIdAndNoteId"
+          parameterType="com.chengliuxiang.xiaochengshu.note.biz.domain.dataobject.NoteLikeDO">
+      update t_note_like
+      set status=#{status},
+          create_time=#{createTime}
+      where user_id = #{userId}
+        and note_id = #{noteId}
+        and status = 1
+  </update>
 </mapper>

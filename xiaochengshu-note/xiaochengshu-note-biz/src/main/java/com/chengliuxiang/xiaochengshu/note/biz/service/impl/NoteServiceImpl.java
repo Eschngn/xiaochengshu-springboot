@@ -472,7 +472,7 @@ public class NoteServiceImpl implements NoteService {
                 long expireSeconds = 60 * 60 * 24 + RandomUtil.randomInt(60 * 60 * 24);
                 if (count > 0) {
                     // 异步初始化布隆过滤器
-                    threadPoolTaskExecutor.submit(()->batchAddNoteLike2BloomAndExpire(userId, expireSeconds, bloomUserNoteLikeListRedisKey));
+                    threadPoolTaskExecutor.submit(() -> batchAddNoteLike2BloomAndExpire(userId, expireSeconds, bloomUserNoteLikeListRedisKey));
                     throw new BizException(ResponseCodeEnum.NOTE_ALREADY_LIKED);
                 }
                 // 目标笔记未被点赞，先同步该用户其他已点赞笔记到布隆过滤器
@@ -489,6 +489,7 @@ public class NoteServiceImpl implements NoteService {
                 }
                 // 若 Score 为空，则 Redis 中用户点赞笔记列表 ZSet 不存在或者 ZSet 中不存在该笔记 ID（前 100 篇），查询数据库校验
                 int count = noteLikeDOMapper.selectCountByUserIdAndNoteId(userId, noteId);
+                // TODO 还有一种情况：如果用户一直点赞的都是自己已点赞笔记列表中100篇后的笔记，这种情况即使 Redis 中有 ZSet 列表，也都会走数据库校验
                 if (count > 0) {
                     // 如果数据库中有该笔记点赞记录，则需要异步初始化 ZSet，防止请求都打到数据库
                     asynInitUserNoteLikesZSet(userId, userNoteLikeZSetRedisKey);
@@ -602,7 +603,7 @@ public class NoteServiceImpl implements NoteService {
     private void asynInitUserNoteLikesZSet(Long userId, String userNoteLikeZSetRedisKey) {
         threadPoolTaskExecutor.execute(() -> {
             Boolean hasKey = redisTemplate.hasKey(userNoteLikeZSetRedisKey);
-            if (!hasKey) { // 不存在，则进行初始化
+            if (!hasKey) { // Redis在中不存在该用户的点赞笔记列表，则进行初始化
                 List<NoteLikeDO> noteLikeDOS = noteLikeDOMapper.selectByUserIdAndLimit(userId, 100);
                 if (CollUtil.isNotEmpty(noteLikeDOS)) {
                     long expireSeconds = 60 * 60 * 24 + RandomUtil.randomInt(60 * 60 * 24);
@@ -613,8 +614,60 @@ public class NoteServiceImpl implements NoteService {
                     redisTemplate.execute(script2, Collections.singletonList(userNoteLikeZSetRedisKey), luaArgs);
                 }
             }
-            // TODO 还有一种情况：如果用户一直点赞的都是自己已点赞笔记列表中100篇后的笔记，这种情况即使 Redis 中有 ZSet 列表，也都会走数据库校验
         });
+    }
+
+    @Override
+    public Response<?> unlikeNote(UnlikeNoteReqVO unlikeNoteReqVO) {
+        Long noteId = unlikeNoteReqVO.getId();
+        checkNoteIsExist(noteId);
+        Long userId = LoginUserContextHolder.getUserId();
+        String bloomUserNoteLikeListKey = RedisKeyConstants.buildBloomUserNoteLikeListKey(noteId);
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+        script.setResultType(Long.class);
+        script.setScriptSource(new ResourceScriptSource(new ClassPathResource("lua/bloom_note_unlike_check.lua")));
+        Long result = redisTemplate.execute(script, Collections.singletonList(bloomUserNoteLikeListKey), noteId);
+        NoteUnlikeLuaResultEnum noteUnlikeLuaResultEnum = NoteUnlikeLuaResultEnum.valueOf(result);
+        switch (Objects.requireNonNull(noteUnlikeLuaResultEnum)) {
+            case NOT_EXIST -> {
+                // 异步初始化布隆过滤器
+                threadPoolTaskExecutor.submit(() -> {
+                    long expireSeconds = 60 * 60 * 24 + RandomUtil.randomInt(60 * 60 * 24);
+                    batchAddNoteLike2BloomAndExpire(userId, expireSeconds, bloomUserNoteLikeListKey);
+                });
+                // 从数据库中校验笔记是否被点赞
+                int count = noteLikeDOMapper.selectCountByUserIdAndNoteId(userId, noteId);
+                if (count == 0) throw new BizException(ResponseCodeEnum.NOTE_NOT_LIKED);
+            }
+            // 布隆过滤器校验目标笔记未被点赞（返回为0，判断绝对正确）
+            case NOTE_NOT_LIKED -> throw new BizException(ResponseCodeEnum.NOTE_NOT_LIKED);
+        }
+        // 能走到这里，说明布隆过滤器判断已点赞，直接删除 ZSET 中已点赞的笔记 ID
+        // 这里已点赞的误判是能够容忍的，假设是误判的（实际数据库中的数据是未点赞的或没有点赞记录）
+        // 那么下面的代码的操作（删除 ZSET 中已点赞的笔记 ID以及数据库更新的落库）是无伤大雅的
+        String userNoteLikeZSetKey = RedisKeyConstants.buildUserNoteLikeZSetKey(userId);
+        redisTemplate.opsForZSet().remove(userNoteLikeZSetKey, noteId);
+        LikeUnlikeNoteMqDTO likeUnlikeNoteMqDTO = LikeUnlikeNoteMqDTO.builder()
+                .userId(userId)
+                .noteId(noteId)
+                .type(LikeUnlikeNoteTypeEnum.UNLIKE.getCode())
+                .createTime(LocalDateTime.now())
+                .build();
+        Message<String> message = MessageBuilder.withPayload(JsonUtils.toJsonString(likeUnlikeNoteMqDTO)).build();
+        String destination = MQConstants.TOPIC_LIKE_OR_UNLIKE + ":" + MQConstants.TAG_UNLIKE;
+        String hashKey = String.valueOf(userId);
+        rocketMQTemplate.asyncSendOrderly(destination, message, hashKey, new SendCallback() {
+            @Override
+            public void onSuccess(SendResult sendResult) {
+                log.info("==> 【笔记取消点赞】MQ 发送成功，SendResult: {}", sendResult);
+            }
+
+            @Override
+            public void onException(Throwable throwable) {
+                log.error("==> 【笔记取消点赞】MQ 发送异常: ", throwable);
+            }
+        });
+        return Response.success();
     }
 
 

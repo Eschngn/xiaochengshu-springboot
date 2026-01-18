@@ -21,4 +21,6 @@ public interface NoteService {
 
     Response<?> likeNote(LikeNoteReqVO likeNoteReqVO);
 
+    Response<?> unlikeNote(UnlikeNoteReqVO unlikeNoteReqVO);
+
 }
