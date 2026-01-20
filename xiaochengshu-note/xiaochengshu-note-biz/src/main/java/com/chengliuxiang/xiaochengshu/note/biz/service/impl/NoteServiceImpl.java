@@ -654,7 +654,7 @@ public class NoteServiceImpl implements NoteService {
         script.setScriptSource(new ResourceScriptSource(new ClassPathResource(("/lua/note_like_check_and_update_zset.lua"))));
         script.setResultType(Long.class);
         result = redisTemplate.execute(script, Collections.singletonList(userNoteLikeZSetKey), noteId, LikeUnlikeNoteTypeEnum.UNLIKE.getCode());
-        if(Objects.equals(result,NoteLikeLuaResultEnum.NOT_EXIST.getCode())){
+        if (Objects.equals(result, NoteLikeLuaResultEnum.NOT_EXIST.getCode())) {
             List<NoteLikeDO> noteLikeDOS = noteLikeDOMapper.selectByUserIdAndLimit(userId, 100);
             long expireSeconds = 60 * 60 * 24 + RandomUtil.randomInt(60 * 60 * 24);
             DefaultRedisScript<Long> script2 = new DefaultRedisScript<>();
@@ -687,6 +687,19 @@ public class NoteServiceImpl implements NoteService {
                 log.error("==> 【笔记取消点赞】MQ 发送异常: ", throwable);
             }
         });
+        return Response.success();
+    }
+
+    @Override
+    public Response<?> collectNote(CollectNoteReqVO collectNoteReqVO) {
+        Long noteId = collectNoteReqVO.getId();
+        checkNoteIsExist(noteId);
+        Long userId = LoginUserContextHolder.getUserId();
+        String userNoteCollectListKey = RedisKeyConstants.buildBloomUserNoteCollectListKey(userId);
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+        script.setResultType(Long.class);
+        script.setScriptSource(new ResourceScriptSource(new ClassPathResource("lua/bloom_note_collect_check.lua")));
+        Long result = redisTemplate.execute(script, Collections.singletonList(userNoteCollectListKey), noteId);
         return Response.success();
     }
 

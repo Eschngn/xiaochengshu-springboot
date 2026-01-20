@@ -23,4 +23,6 @@ public interface NoteService {
 
     Response<?> unlikeNote(UnlikeNoteReqVO unlikeNoteReqVO);
 
+    Response<?> collectNote(CollectNoteReqVO collectNoteReqVO);
+
 }
