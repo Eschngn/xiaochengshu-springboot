@@ -91,15 +91,23 @@
     where id = #{id,jdbcType=BIGINT}
   </update>
   <select id="selectCountByUserIdAndNoteId" resultType="int" parameterType="map">
-    select count(1)
-    from t_note_collection
-    where user_id = #{userId}
-      and note_id = #{noteId}
+      select count(1)
+      from t_note_collection
+      where user_id = #{userId}
+        and note_id = #{noteId}
+        and status = 1 limit 1
   </select>
   <select id="selectByUserId" resultMap="BaseResultMap" parameterType="map">
       select note_id
       from t_note_collection
       where user_id = #{userId}
         and status = 1
+  </select>
+  <select id="selectByUserIdAndLimit" resultMap="BaseResultMap" parameterType="map">
+      select note_id, create_time
+      from t_note_collection
+      where user_id = #{userId}
+        and status = 1
+      order by create_time desc limit #{limit}
   </select>
 </mapper>
