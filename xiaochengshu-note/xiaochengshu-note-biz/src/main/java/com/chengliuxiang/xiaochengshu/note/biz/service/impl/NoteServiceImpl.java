@@ -706,7 +706,7 @@ public class NoteServiceImpl implements NoteService {
         Long result = redisTemplate.execute(script, Collections.singletonList(userNoteCollectListKey), noteId);
         NoteCollectLuaResultEnum noteCollectLuaResultEnum = NoteCollectLuaResultEnum.valueOf(result);
         String userNoteCollectZSetKey = RedisKeyConstants.buildUserNoteCollectZSetKey(userId);
-        switch (noteCollectLuaResultEnum) {
+        switch (Objects.requireNonNull(noteCollectLuaResultEnum)) {
             case NOT_EXIST -> {
                 int count = noteCollectionDOMapper.selectCountByUserIdAndNoteId(userId, noteId);
                 long expireSeconds = 60 * 60 * 24 + RandomUtil.randomInt(60 * 60 * 24);
@@ -732,7 +732,29 @@ public class NoteServiceImpl implements NoteService {
                     asynInitUserNoteCollectsZSet(userId, userNoteCollectZSetKey);
                     throw new BizException(ResponseCodeEnum.NOTE_ALREADY_COLLECTED);
                 }
-
+            }
+        }
+        // 能走到这里说明目标笔记是真的未被收藏状态
+        LocalDateTime now = LocalDateTime.now();
+        script.setScriptSource(new ResourceScriptSource(new ClassPathResource(("lua/note_collect_check_and_update_zset.lua"))));
+        script.setResultType(Long.class);
+        result = redisTemplate.execute(script, Collections.singletonList(userNoteCollectZSetKey), noteId, DateUtils.localDateTime2Timestamp(now));
+        if (Objects.equals(result, NoteCollectLuaResultEnum.NOT_EXIST.getCode())) { // ZSet 不存在，则重新初始化
+            List<NoteCollectionDO> noteCollectionDOS = noteCollectionDOMapper.selectByUserIdAndLimit(userId, 300);
+            long expireSeconds = 60 * 60 * 24 + RandomUtil.randomInt(60 * 60 * 24);
+            DefaultRedisScript<Long> script2 = new DefaultRedisScript<>();
+            script2.setResultType(Long.class);
+            script2.setScriptSource(new ResourceScriptSource(new ClassPathResource("/lua/batch_add_note_collect_zset_and_expire.lua")));
+            if (CollUtil.isNotEmpty(noteCollectionDOS)) {
+                Object[] luaArgs = buildNoteCollectZSetLuaArgs(noteCollectionDOS, expireSeconds);
+                redisTemplate.execute(script2, Collections.singletonList(userNoteCollectZSetKey), luaArgs);
+                redisTemplate.execute(script, Collections.singletonList(userNoteCollectZSetKey), noteId, DateUtils.localDateTime2Timestamp(now));
+            } else { // 若无历史收藏的笔记，则直接将当前收藏的笔记 ID 添加到 ZSet 中，随机过期时间
+                List<Object> luaArgs = Lists.newArrayList();
+                luaArgs.add(DateUtils.localDateTime2Timestamp(now));
+                luaArgs.add(noteId);
+                luaArgs.add(expireSeconds);
+                redisTemplate.execute(script2, Collections.singletonList(userNoteCollectZSetKey), luaArgs);
             }
         }
         return Response.success();
