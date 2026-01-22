@@ -9,8 +9,10 @@ import com.chengliuxiang.framework.common.util.DateUtils;
 import com.chengliuxiang.framework.common.util.JsonUtils;
 import com.chengliuxiang.xiaochengshu.note.biz.constant.MQConstants;
 import com.chengliuxiang.xiaochengshu.note.biz.constant.RedisKeyConstants;
+import com.chengliuxiang.xiaochengshu.note.biz.domain.dataobject.NoteCollectionDO;
 import com.chengliuxiang.xiaochengshu.note.biz.domain.dataobject.NoteDO;
 import com.chengliuxiang.xiaochengshu.note.biz.domain.dataobject.NoteLikeDO;
+import com.chengliuxiang.xiaochengshu.note.biz.domain.mapper.NoteCollectionDOMapper;
 import com.chengliuxiang.xiaochengshu.note.biz.domain.mapper.NoteDOMapper;
 import com.chengliuxiang.xiaochengshu.note.biz.domain.mapper.NoteLikeDOMapper;
 import com.chengliuxiang.xiaochengshu.note.biz.domain.mapper.TopicDOMapper;
@@ -72,6 +74,8 @@ public class NoteServiceImpl implements NoteService {
     private RocketMQTemplate rocketMQTemplate;
     @Resource
     private NoteLikeDOMapper noteLikeDOMapper;
+    @Resource
+    private NoteCollectionDOMapper noteCollectionDOMapper;
     /**
      * 笔记详情本地缓存
      */
@@ -700,7 +704,44 @@ public class NoteServiceImpl implements NoteService {
         script.setResultType(Long.class);
         script.setScriptSource(new ResourceScriptSource(new ClassPathResource("lua/bloom_note_collect_check.lua")));
         Long result = redisTemplate.execute(script, Collections.singletonList(userNoteCollectListKey), noteId);
+        NoteCollectLuaResultEnum noteCollectLuaResultEnum = NoteCollectLuaResultEnum.valueOf(result);
+        switch (noteCollectLuaResultEnum) {
+            case NOT_EXIST -> {
+                int count = noteCollectionDOMapper.selectCountByUserIdAndNoteId(userId, noteId);
+                long expireSeconds = 60 * 60 * 24 + RandomUtil.randomInt(60 * 60 * 24);
+                if (count > 0) {
+                    threadPoolTaskExecutor.submit(() ->
+                            batchAddNoteCollect2BloomAndExpire(userId, expireSeconds, userNoteCollectListKey));
+                    throw new BizException(ResponseCodeEnum.NOTE_ALREADY_COLLECTED);
+                }
+                // 若目标笔记未被收藏，查询当前用户是否有收藏其他笔记，有则同步初始化布隆过滤器
+                batchAddNoteCollect2BloomAndExpire(userId, expireSeconds, userNoteCollectListKey);
+                script.setScriptSource(new ResourceScriptSource(new ClassPathResource("/lua/bloom_add_note_collect_and_expire.lua")));
+                script.setResultType(Long.class);
+                redisTemplate.execute(script, Collections.singletonList(userNoteCollectListKey), noteId, expireSeconds);
+            }
+            case NOTE_COLLECTED -> {
+
+            }
+        }
         return Response.success();
+    }
+
+    private void batchAddNoteCollect2BloomAndExpire(Long userId, long expireSeconds, String bloomUserNoteCollectListKey) {
+        try {
+            List<NoteCollectionDO> noteCollectionDOS = noteCollectionDOMapper.selectByUserId(userId);
+            if (CollUtil.isNotEmpty(noteCollectionDOS)) {
+                DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+                script.setResultType(Long.class);
+                script.setScriptSource(new ResourceScriptSource(new ClassPathResource("/lua/bloom_batch_add_note_collect_and_expire.lua")));
+                List<Object> luaArgs = Lists.newArrayList();
+                noteCollectionDOS.forEach(noteCollectionDO -> luaArgs.add(noteCollectionDO.getNoteId()));
+                luaArgs.add(expireSeconds);
+                redisTemplate.execute(script, Collections.singletonList(bloomUserNoteCollectListKey), luaArgs.toArray());
+            }
+        } catch (Exception e) {
+            log.error("## 异步初始化【笔记收藏】布隆过滤器异常: ", e);
+        }
     }
 
 

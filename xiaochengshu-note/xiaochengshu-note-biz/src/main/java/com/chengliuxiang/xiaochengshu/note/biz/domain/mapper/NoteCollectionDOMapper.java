@@ -1,6 +1,9 @@
 package com.chengliuxiang.xiaochengshu.note.biz.domain.mapper;
 
 import com.chengliuxiang.xiaochengshu.note.biz.domain.dataobject.NoteCollectionDO;
+import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
 
 public interface NoteCollectionDOMapper {
     int deleteByPrimaryKey(Long id);
@@ -14,4 +17,8 @@ public interface NoteCollectionDOMapper {
     int updateByPrimaryKeySelective(NoteCollectionDO record);
 
     int updateByPrimaryKey(NoteCollectionDO record);
+
+    int selectCountByUserIdAndNoteId(@Param("userId") Long userId, @Param("noteId") Long noteId);
+
+    List<NoteCollectionDO> selectByUserId(Long userId);
 }
