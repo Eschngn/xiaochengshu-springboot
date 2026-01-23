@@ -23,4 +23,6 @@ public interface NoteCollectionDOMapper {
     List<NoteCollectionDO> selectByUserId(Long userId);
 
     List<NoteCollectionDO> selectByUserIdAndLimit(@Param("userId") Long userId, @Param("limit") int limit);
+
+    int insertOrUpdate(NoteCollectionDO noteCollectionDO);
 }

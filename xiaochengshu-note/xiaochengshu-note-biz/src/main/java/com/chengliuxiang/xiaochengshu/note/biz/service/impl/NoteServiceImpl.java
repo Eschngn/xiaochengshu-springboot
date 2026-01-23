@@ -17,6 +17,7 @@ import com.chengliuxiang.xiaochengshu.note.biz.domain.mapper.NoteDOMapper;
 import com.chengliuxiang.xiaochengshu.note.biz.domain.mapper.NoteLikeDOMapper;
 import com.chengliuxiang.xiaochengshu.note.biz.domain.mapper.TopicDOMapper;
 import com.chengliuxiang.xiaochengshu.note.biz.enums.*;
+import com.chengliuxiang.xiaochengshu.note.biz.model.dto.CollectUnCollectNoteMqDTO;
 import com.chengliuxiang.xiaochengshu.note.biz.model.dto.LikeUnlikeNoteMqDTO;
 import com.chengliuxiang.xiaochengshu.note.biz.model.vo.*;
 import com.chengliuxiang.xiaochengshu.note.biz.rpc.DistributedIdGeneratorRpcService;
@@ -754,9 +755,31 @@ public class NoteServiceImpl implements NoteService {
                 luaArgs.add(DateUtils.localDateTime2Timestamp(now));
                 luaArgs.add(noteId);
                 luaArgs.add(expireSeconds);
-                redisTemplate.execute(script2, Collections.singletonList(userNoteCollectZSetKey), luaArgs);
+                redisTemplate.execute(script2, Collections.singletonList(userNoteCollectZSetKey), luaArgs.toArray());
             }
         }
+        // 发送 MQ, 将收藏数据落库
+        CollectUnCollectNoteMqDTO collectUnCollectNoteMqDTO = CollectUnCollectNoteMqDTO.builder()
+                .userId(userId)
+                .noteId(noteId)
+                .type(CollectUnCollectNoteTypeEnum.COLLECT.getCode())
+                .createTime(now)
+                .build();
+        Message<String> message = MessageBuilder.withPayload(JsonUtils.toJsonString(collectUnCollectNoteMqDTO))
+                .build();
+        String destination = MQConstants.TOPIC_COLLECT_OR_UN_COLLECT + ":" + MQConstants.TAG_COLLECT;
+        String hashKey = String.valueOf(userId);
+        rocketMQTemplate.asyncSendOrderly(destination, message, hashKey, new SendCallback() {
+            @Override
+            public void onSuccess(SendResult sendResult) {
+                log.info("==> 【笔记收藏】MQ 发送成功，SendResult: {}", sendResult);
+            }
+
+            @Override
+            public void onException(Throwable throwable) {
+                log.error("==> 【笔记收藏】MQ 发送异常: ", throwable);
+            }
+        });
         return Response.success();
     }
 

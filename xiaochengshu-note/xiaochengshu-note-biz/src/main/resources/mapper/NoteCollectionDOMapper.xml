@@ -110,4 +110,9 @@
         and status = 1
       order by create_time desc limit #{limit}
   </select>
+  <insert id="insertOrUpdate" parameterType="com.chengliuxiang.xiaochengshu.note.biz.domain.dataobject.NoteCollectionDO">
+      insert into t_note_collection (user_id, note_id, create_time, status)
+      values (#{userId}, #{noteId}, #{createTime}, #{status}) on duplicate key
+      update create_time=#{createTime},status=#{status}
+  </insert>
 </mapper>
