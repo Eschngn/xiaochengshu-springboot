@@ -25,4 +25,6 @@ public interface NoteService {
 
     Response<?> collectNote(CollectNoteReqVO collectNoteReqVO);
 
+    Response<?> unCollectNote(UnCollectNoteReqVO unCollectNoteReqVO);
+
 }

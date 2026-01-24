@@ -830,5 +830,34 @@ public class NoteServiceImpl implements NoteService {
         return luaArgs;
     }
 
+    @Override
+    public Response<?> unCollectNote(UnCollectNoteReqVO unCollectNoteReqVO) {
+        Long noteId = unCollectNoteReqVO.getId();
+        checkNoteIsExist(noteId);
+        Long userId = LoginUserContextHolder.getUserId();
+        String bloomUserNoteCollectListKey = RedisKeyConstants.buildBloomUserNoteCollectListKey(userId);
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+        script.setResultType(Long.class);
+        script.setScriptSource(new ResourceScriptSource(new ClassPathResource("/lua/bloom_note_uncollect_check.lua")));
+        Long result = redisTemplate.execute(script, Collections.singletonList(bloomUserNoteCollectListKey), noteId);
+        NoteUnCollectLuaResultEnum noteUnCollectLuaResultEnum = NoteUnCollectLuaResultEnum.valueOf(result);
+        switch (Objects.requireNonNull(noteUnCollectLuaResultEnum)) {
+            case NOT_EXIST -> {
+                long expireSeconds = 60 * 60 * 24 + RandomUtil.randomInt(60 * 60 * 24);
+                batchAddNoteCollect2BloomAndExpire(userId, expireSeconds, bloomUserNoteCollectListKey);
+                int count = noteCollectionDOMapper.selectCountByUserIdAndNoteId(userId, noteId);
+                if (count == 0) throw new BizException(ResponseCodeEnum.NOTE_NOT_COLLECTED);
+            }
+            // TODO：布隆过滤器判断为笔记已收藏的情况，需要解决误判
+            // 布隆过滤器校验目标笔记未被收藏（判断绝对正确）
+            case NOTE_NOT_COLLECTED -> throw new BizException(ResponseCodeEnum.NOTE_NOT_COLLECTED);
+        }
+        String userNoteCollectZSetKey = RedisKeyConstants.buildUserNoteCollectZSetKey(userId);
+        // TODO：需要判断 Redis 中 ZSet 是否存在，不存在则进行初始化
+        redisTemplate.opsForZSet().remove(userNoteCollectZSetKey, noteId);
+
+        return Response.success();
+    }
+
 
 }
