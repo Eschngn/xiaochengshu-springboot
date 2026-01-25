@@ -518,7 +518,8 @@ public class NoteServiceImpl implements NoteService {
                 Object[] luaArgs = buildNoteLikeZSetLuaArgs(noteLikeDOS, expireSeconds);
                 redisTemplate.execute(script2, Collections.singletonList(userNoteLikeZSetRedisKey), luaArgs);
                 // 再次调用 script 脚本，将最新的点赞的笔记添加到 ZSet 中
-                result = redisTemplate.execute(script, Collections.singletonList(userNoteLikeZSetRedisKey), noteId, DateUtils.localDateTime2Timestamp(now));
+                result = redisTemplate.execute(script, Collections.singletonList(userNoteLikeZSetRedisKey), noteId,
+                        LikeUnlikeNoteTypeEnum.LIKE.getCode(), DateUtils.localDateTime2Timestamp(now));
             } else { // 数据库中无该用户的点赞记录，直接将当前点赞的笔记 ID 添加到 ZSet 中，随机过期时间
                 List<Object> luaArgs = Lists.newArrayList();
                 luaArgs.add(DateUtils.localDateTime2Timestamp(LocalDateTime.now()));
@@ -739,7 +740,8 @@ public class NoteServiceImpl implements NoteService {
         LocalDateTime now = LocalDateTime.now();
         script.setScriptSource(new ResourceScriptSource(new ClassPathResource(("lua/note_collect_check_and_update_zset.lua"))));
         script.setResultType(Long.class);
-        result = redisTemplate.execute(script, Collections.singletonList(userNoteCollectZSetKey), noteId, DateUtils.localDateTime2Timestamp(now));
+        result = redisTemplate.execute(script, Collections.singletonList(userNoteCollectZSetKey), noteId,
+                CollectUnCollectNoteTypeEnum.COLLECT.getCode(), DateUtils.localDateTime2Timestamp(now));
         if (Objects.equals(result, NoteCollectLuaResultEnum.NOT_EXIST.getCode())) { // ZSet 不存在，则重新初始化
             List<NoteCollectionDO> noteCollectionDOS = noteCollectionDOMapper.selectByUserIdAndLimit(userId, 300);
             long expireSeconds = 60 * 60 * 24 + RandomUtil.randomInt(60 * 60 * 24);
@@ -749,7 +751,8 @@ public class NoteServiceImpl implements NoteService {
             if (CollUtil.isNotEmpty(noteCollectionDOS)) {
                 Object[] luaArgs = buildNoteCollectZSetLuaArgs(noteCollectionDOS, expireSeconds);
                 redisTemplate.execute(script2, Collections.singletonList(userNoteCollectZSetKey), luaArgs);
-                redisTemplate.execute(script, Collections.singletonList(userNoteCollectZSetKey), noteId, DateUtils.localDateTime2Timestamp(now));
+                redisTemplate.execute(script, Collections.singletonList(userNoteCollectZSetKey), noteId,
+                        CollectUnCollectNoteTypeEnum.COLLECT.getCode(), DateUtils.localDateTime2Timestamp(now));
             } else { // 若无历史收藏的笔记，则直接将当前收藏的笔记 ID 添加到 ZSet 中，随机过期时间
                 List<Object> luaArgs = Lists.newArrayList();
                 luaArgs.add(DateUtils.localDateTime2Timestamp(now));
@@ -848,14 +851,54 @@ public class NoteServiceImpl implements NoteService {
                 int count = noteCollectionDOMapper.selectCountByUserIdAndNoteId(userId, noteId);
                 if (count == 0) throw new BizException(ResponseCodeEnum.NOTE_NOT_COLLECTED);
             }
-            // TODO：布隆过滤器判断为笔记已收藏的情况，需要解决误判
+            // 布隆过滤器存在时，当用户收藏了该笔记，且在布隆过滤器过期之前，又取消了收藏，会存在误判（此时的未收藏判断成了已收藏）
+            // 需要从数据库中校验笔记是否被收藏
+            case NOTE_COLLECTED -> {
+                int count = noteCollectionDOMapper.selectCountByUserIdAndNoteId(userId, noteId);
+                if (count == 0) throw new BizException(ResponseCodeEnum.NOTE_NOT_COLLECTED);
+            }
             // 布隆过滤器校验目标笔记未被收藏（判断绝对正确）
             case NOTE_NOT_COLLECTED -> throw new BizException(ResponseCodeEnum.NOTE_NOT_COLLECTED);
         }
+        // 能走到这里说明目标笔记一定是真实的已收藏的状态
         String userNoteCollectZSetKey = RedisKeyConstants.buildUserNoteCollectZSetKey(userId);
-        // TODO：需要判断 Redis 中 ZSet 是否存在，不存在则进行初始化
-        redisTemplate.opsForZSet().remove(userNoteCollectZSetKey, noteId);
+        script.setScriptSource(new ResourceScriptSource(new ClassPathResource(("/lua/note_collect_check_and_update_zset.lua"))));
+        script.setResultType(Long.class);
+        result = redisTemplate.execute(script, Collections.singletonList(userNoteCollectZSetKey), noteId, CollectUnCollectNoteTypeEnum.UN_COLLECT.getCode());
+        if (Objects.equals(result, NoteCollectLuaResultEnum.NOT_EXIST.getCode())) {
+            List<NoteCollectionDO> noteCollectionDOS = noteCollectionDOMapper.selectByUserIdAndLimit(userId, 300);
+            long expireSeconds = 60 * 60 * 24 + RandomUtil.randomInt(60 * 60 * 24);
+            DefaultRedisScript<Long> script2 = new DefaultRedisScript<>();
+            script2.setResultType(Long.class);
+            script2.setScriptSource(new ResourceScriptSource(new ClassPathResource("/lua/batch_add_note_collect_zset_and_expire.lua")));
+            if (CollUtil.isNotEmpty(noteCollectionDOS)) {
+                Object[] luaArgs = buildNoteCollectZSetLuaArgs(noteCollectionDOS, expireSeconds);
+                redisTemplate.execute(script2, Collections.singletonList(userNoteCollectZSetKey), luaArgs);
+                redisTemplate.opsForZSet().remove(userNoteCollectZSetKey, noteId);
+            }
+        }
 
+        // 发送 MQ，数据更新落库
+        CollectUnCollectNoteMqDTO collectUnCollectNoteMqDTO = CollectUnCollectNoteMqDTO.builder()
+                .userId(userId)
+                .noteId(noteId)
+                .type(CollectUnCollectNoteTypeEnum.UN_COLLECT.getCode())
+                .createTime(LocalDateTime.now())
+                .build();
+        Message<String> message = MessageBuilder.withPayload(JsonUtils.toJsonString(collectUnCollectNoteMqDTO)).build();
+        String destination = MQConstants.TOPIC_COLLECT_OR_UN_COLLECT + ":" + MQConstants.TAG_UN_COLLECT;
+        String hashKey = String.valueOf(userId);
+        rocketMQTemplate.asyncSendOrderly(destination, message, hashKey, new SendCallback() {
+            @Override
+            public void onSuccess(SendResult sendResult) {
+                log.info("==> 【笔记取消收藏】MQ 发送成功，SendResult: {}", sendResult);
+            }
+
+            @Override
+            public void onException(Throwable throwable) {
+                log.error("==> 【笔记取消收藏】MQ 发送异常: ", throwable);
+            }
+        });
         return Response.success();
     }
 
