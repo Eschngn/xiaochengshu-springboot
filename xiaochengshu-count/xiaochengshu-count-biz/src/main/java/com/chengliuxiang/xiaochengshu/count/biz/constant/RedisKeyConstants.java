@@ -17,6 +17,8 @@ public class RedisKeyConstants {
 
     public static final String FIELD_LIKE_TOTAL = "likeTotal";
 
+    public static final String FIELD_COLLECT_TOTAL = "collectTotal";
+
     public static String buildCountUserKey(Long userId) {
         return COUNT_USER_KEY_PREFIX + userId;
     }

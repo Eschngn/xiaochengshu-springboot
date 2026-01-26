@@ -8,10 +8,14 @@ import com.chengliuxiang.xiaochengshu.note.biz.model.dto.CollectUnCollectNoteMqD
 import com.google.common.util.concurrent.RateLimiter;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.rocketmq.client.producer.SendCallback;
+import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.spring.annotation.ConsumeMode;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.apache.rocketmq.spring.core.RocketMQListener;
+import org.apache.rocketmq.spring.core.RocketMQTemplate;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -23,14 +27,16 @@ import java.util.Objects;
         consumeMode = ConsumeMode.ORDERLY)
 @Slf4j
 public class CollectUnCollectNoteConsumer implements RocketMQListener<Message> {
-    private final RateLimiter rateLimiter=RateLimiter.create(5000);
+    private final RateLimiter rateLimiter = RateLimiter.create(5000);
     @Resource
     private NoteCollectionDOMapper noteCollectionDOMapper;
+    @Resource
+    private RocketMQTemplate rocketMQTemplate;
 
     @Override
     public void onMessage(Message message) {
         rateLimiter.acquire();
-        String bodyJsonStr=new String(message.getBody());
+        String bodyJsonStr = new String(message.getBody());
         String tags = message.getTags();
         log.info("==> CollectUnCollectNoteConsumer 消费了消息 {}, tags: {}", bodyJsonStr, tags);
         if (Objects.equals(tags, MQConstants.TAG_COLLECT)) { // 收藏笔记
@@ -42,6 +48,7 @@ public class CollectUnCollectNoteConsumer implements RocketMQListener<Message> {
 
     /**
      * 笔记收藏
+     *
      * @param bodyJsonStr
      */
     private void handleCollectNoteTagMessage(String bodyJsonStr) {
@@ -57,11 +64,24 @@ public class CollectUnCollectNoteConsumer implements RocketMQListener<Message> {
                 .status(type)
                 .build();
         int count = noteCollectionDOMapper.insertOrUpdate(noteCollectionDO);
+        if (count == 0) return;
+        org.springframework.messaging.Message<String> message = MessageBuilder.withPayload(bodyJsonStr).build();
+        rocketMQTemplate.asyncSend(MQConstants.TOPIC_COUNT_NOTE_COLLECT, message, new SendCallback() {
+            @Override
+            public void onSuccess(SendResult sendResult) {
+                log.info("==> 【计数: 笔记收藏】MQ 发送成功，SendResult: {}", sendResult);
+            }
 
+            @Override
+            public void onException(Throwable throwable) {
+                log.error("==> 【计数: 笔记收藏】MQ 发送异常: ", throwable);
+            }
+        });
     }
 
     /**
      * 笔记取消收藏
+     *
      * @param bodyJsonStr
      */
     private void handleUnCollectNoteTagMessage(String bodyJsonStr) {
@@ -78,5 +98,18 @@ public class CollectUnCollectNoteConsumer implements RocketMQListener<Message> {
                 .createTime(createTime)
                 .build();
         int count = noteCollectionDOMapper.update2UnCollectByUserIdAndNoteId(collectionDO);
+        if (count == 0) return;
+        org.springframework.messaging.Message<String> message = MessageBuilder.withPayload(bodyJsonStr).build();
+        rocketMQTemplate.asyncSend(MQConstants.TOPIC_COUNT_NOTE_COLLECT, message, new SendCallback() {
+            @Override
+            public void onSuccess(SendResult sendResult) {
+                log.info("==> 【计数: 笔记取消收藏】MQ 发送成功，SendResult: {}", sendResult);
+            }
+
+            @Override
+            public void onException(Throwable throwable) {
+                log.error("==> 【计数: 笔记取消收藏】MQ 发送异常: ", throwable);
+            }
+        });
     }
 }

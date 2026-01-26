@@ -16,5 +16,7 @@ public interface NoteCountDOMapper {
 
     int updateByPrimaryKey(NoteCountDO record);
 
-    int insertOrUpdate(@Param("count") Integer count, @Param("noteId") Long noteId);
+    int insertOrUpdateLikeTotalByNoteId(@Param("count") Integer count, @Param("noteId") Long noteId);
+
+    int insertOrUpdateCollectTotalByNoteId(@Param("count") Integer count, @Param("noteId") Long noteId);
 }

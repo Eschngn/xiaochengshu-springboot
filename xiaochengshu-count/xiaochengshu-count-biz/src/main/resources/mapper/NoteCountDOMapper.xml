@@ -91,9 +91,14 @@
     where id = #{id,jdbcType=BIGINT}
   </update>
 
-  <insert id="insertOrUpdate" parameterType="map">
+  <insert id="insertOrUpdateLikeTotalByNoteId" parameterType="map">
       insert into t_note_count (note_id, like_total)
       values (#{noteId}, #{count}) on duplicate key
       update like_total=like_total+(#{count});
+  </insert>
+  <insert id="insertOrUpdateCollectTotalByNoteId" parameterType="map">
+    insert into t_note_count (note_id, collect_total)
+    values (#{noteId}, #{count}) on duplicate key
+    update collect_total=collect+(#{count});
   </insert>
 </mapper>

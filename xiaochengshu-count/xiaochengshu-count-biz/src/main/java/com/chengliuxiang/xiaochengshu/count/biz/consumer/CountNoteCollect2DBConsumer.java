@@ -15,10 +15,10 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 
 @Component
-@RocketMQMessageListener(consumerGroup = "xiaochengshu_group_" + MQConstants.TOPIC_COUNT_NOTE_LIKE_2_DB,
-        topic = MQConstants.TOPIC_COUNT_NOTE_LIKE_2_DB)
+@RocketMQMessageListener(consumerGroup = "xiaochengshu_group_" + MQConstants.TOPIC_COUNT_NOTE_COLLECT_2_DB,
+        topic = MQConstants.TOPIC_COUNT_NOTE_COLLECT_2_DB)
 @Slf4j
-public class CountNoteLike2DBConsumer implements RocketMQListener<String> {
+public class CountNoteCollect2DBConsumer implements RocketMQListener<String> {
     @Resource
     private NoteCountDOMapper noteCountDOMapper;
 
@@ -27,7 +27,7 @@ public class CountNoteLike2DBConsumer implements RocketMQListener<String> {
     @Override
     public void onMessage(String body) {
         rateLimiter.acquire();
-        log.info("## 消费到了 MQ 【计数: 笔记点赞数入库】, {}...", body);
+        log.info("## 消费到了 MQ 【计数: 笔记收藏数入库】, {}...", body);
         Map<Long, Integer> countMap = Maps.newHashMap();
         try {
             countMap = JsonUtils.parseMap(body, Long.class, Integer.class);
@@ -35,7 +35,7 @@ public class CountNoteLike2DBConsumer implements RocketMQListener<String> {
             log.error("## 解析 JSON 字符串异常", e);
         }
         if (CollUtil.isNotEmpty(countMap)) {
-            countMap.forEach((k, v) -> noteCountDOMapper.insertOrUpdateLikeTotalByNoteId(v, k));
+            countMap.forEach((k, v) -> noteCountDOMapper.insertOrUpdateCollectTotalByNoteId(v, k));
         }
     }
 }
