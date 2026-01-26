@@ -4,9 +4,10 @@ import com.chengliuxiang.framework.common.util.JsonUtils;
 import com.chengliuxiang.xiaochengshu.count.biz.constant.MQConstants;
 import com.chengliuxiang.xiaochengshu.count.biz.constant.RedisKeyConstants;
 import com.chengliuxiang.xiaochengshu.count.biz.enums.LikeUnlikeNoteTypeEnum;
+import com.chengliuxiang.xiaochengshu.count.biz.model.dto.AggregationCountLikeUnlikeNoteMqDTO;
 import com.chengliuxiang.xiaochengshu.count.biz.model.dto.CountLikeUnlikeNoteMqDTO;
 import com.github.phantomthief.collection.BufferTrigger;
-import com.google.common.collect.Maps;
+import com.google.common.collect.Lists;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.producer.SendCallback;
@@ -55,12 +56,15 @@ public class CountNoteLikeConsumer implements RocketMQListener<String> {
         // 按笔记 ID 进行分组
         Map<Long, List<CountLikeUnlikeNoteMqDTO>> groupMap = countLikeUnlikeNoteMqDTOS.stream()
                 .collect(Collectors.groupingBy(CountLikeUnlikeNoteMqDTO::getNoteId));
-        Map<Long, Integer> countMap = Maps.newHashMap();
+        List<AggregationCountLikeUnlikeNoteMqDTO> countList = Lists.newArrayList();
         for (Map.Entry<Long, List<CountLikeUnlikeNoteMqDTO>> entry : groupMap.entrySet()) {
             List<CountLikeUnlikeNoteMqDTO> list = entry.getValue();
             int finalCount = 0;
+            Long creatorId = null;
+            Long noteId = entry.getKey();
             for (CountLikeUnlikeNoteMqDTO countLikeUnlikeNoteMqDTO : list) {
                 Integer type = countLikeUnlikeNoteMqDTO.getType();
+                creatorId = countLikeUnlikeNoteMqDTO.getNoteCreatorId();
                 LikeUnlikeNoteTypeEnum likeUnlikeNoteTypeEnum = LikeUnlikeNoteTypeEnum.valueOf(type);
                 if (Objects.isNull(likeUnlikeNoteTypeEnum)) continue;
                 switch (likeUnlikeNoteTypeEnum) {
@@ -68,20 +72,33 @@ public class CountNoteLikeConsumer implements RocketMQListener<String> {
                     case UNLIKE -> finalCount -= 1;
                 }
             }
-            countMap.put(entry.getKey(), finalCount);
+            countList.add(AggregationCountLikeUnlikeNoteMqDTO.builder()
+                    .noteId(noteId)
+                    .creatorId(creatorId)
+                    .count(finalCount)
+                    .build());
         }
-        log.info("## 【笔记点赞数】聚合后的计数数据: {}", JsonUtils.toJsonString(countMap));
+        log.info("## 【笔记点赞数】聚合后的计数数据: {}", JsonUtils.toJsonString(countList));
 
         // 更新 Redis
-        countMap.forEach((k, v) -> {
-            String redisKey = RedisKeyConstants.buildCountNoteKey(k);
-            Boolean isExisted = redisTemplate.hasKey(redisKey);
-            if (isExisted) {
-                redisTemplate.opsForHash().increment(redisKey, RedisKeyConstants.FIELD_LIKE_TOTAL, v);
+        countList.forEach(item->{
+            Long creatorId = item.getCreatorId();
+            Long noteId = item.getNoteId();
+            Integer count = item.getCount();
+            String countNoteRedisKey = RedisKeyConstants.buildCountNoteKey(noteId);
+            Boolean isCountNoteExisted = redisTemplate.hasKey(countNoteRedisKey);
+            if(isCountNoteExisted){
+                redisTemplate.opsForHash().increment(countNoteRedisKey,RedisKeyConstants.FIELD_LIKE_TOTAL,count);
+            }
+
+            String countUserRedisKey = RedisKeyConstants.buildCountUserKey(creatorId);
+            Boolean isCountUserExisted = redisTemplate.hasKey(countUserRedisKey);
+            if(isCountUserExisted){
+                redisTemplate.opsForHash().increment(countUserRedisKey,RedisKeyConstants.FIELD_LIKE_TOTAL,count);
             }
         });
 
-        Message<String> message = MessageBuilder.withPayload(JsonUtils.toJsonString(countMap))
+        Message<String> message = MessageBuilder.withPayload(JsonUtils.toJsonString(countList))
                 .build();
 
         // 异步发送 MQ 消息

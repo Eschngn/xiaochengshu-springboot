@@ -461,7 +461,7 @@ public class NoteServiceImpl implements NoteService {
     @Override
     public Response<?> likeNote(LikeNoteReqVO likeNoteReqVO) {
         Long noteId = likeNoteReqVO.getId();
-        checkNoteIsExist(noteId);
+        Long creatorId = checkNoteIsExistAndGetCreatorId(noteId);
         Long userId = LoginUserContextHolder.getUserId();
         String bloomUserNoteLikeListRedisKey = RedisKeyConstants.buildBloomUserNoteLikeListKey(userId);
         DefaultRedisScript<Long> script = new DefaultRedisScript<>();
@@ -534,6 +534,7 @@ public class NoteServiceImpl implements NoteService {
                 .noteId(noteId)
                 .type(LikeUnlikeNoteTypeEnum.LIKE.getCode())
                 .createTime(now)
+                .noteCreatorId(creatorId)
                 .build();
         Message<String> message = MessageBuilder.withPayload(JsonUtils.toJsonString(likeUnlikeNoteMqDTO)).build();
         String destination = MQConstants.TOPIC_LIKE_OR_UNLIKE + ":" + MQConstants.TAG_LIKE;
@@ -553,7 +554,7 @@ public class NoteServiceImpl implements NoteService {
         return Response.success();
     }
 
-    private void checkNoteIsExist(Long noteId) {
+    private Long checkNoteIsExistAndGetCreatorId(Long noteId) {
         String findNoteDetailRspVOStrLocalCache = LOCAL_CACHE.getIfPresent(noteId);
         FindNoteDetailRspVO findNoteDetailRspVO = JsonUtils.parseObject(findNoteDetailRspVOStrLocalCache, FindNoteDetailRspVO.class);
         if (Objects.isNull(findNoteDetailRspVO)) {
@@ -563,16 +564,18 @@ public class NoteServiceImpl implements NoteService {
             findNoteDetailRspVO = JsonUtils.parseObject(noteDetailJson, FindNoteDetailRspVO.class);
             if (Objects.isNull(findNoteDetailRspVO)) {
                 // Redis 中也没有，则从数据库中查询
-                int count = noteDOMapper.selectCountByNoteId(noteId);
-                if (count == 0) {
+                Long creatorId = noteDOMapper.selectCreatorIdByNoteId(noteId);
+                if (Objects.isNull(creatorId)) {
                     throw new BizException(ResponseCodeEnum.NOTE_NOT_FOUND);
                 }
                 threadPoolTaskExecutor.submit(() -> {
                     FindNoteDetailReqVO findNoteDetailReqVO = FindNoteDetailReqVO.builder().id(noteId).build();
                     findNoteDetail(findNoteDetailReqVO);
                 });
+                return creatorId;
             }
         }
+        return findNoteDetailRspVO.getCreatorId();
     }
 
     private void batchAddNoteLike2BloomAndExpire(Long userId, Long expireSeconds, String bloomUserNoteLikeListRedisKey) {
@@ -627,7 +630,7 @@ public class NoteServiceImpl implements NoteService {
     @Override
     public Response<?> unlikeNote(UnlikeNoteReqVO unlikeNoteReqVO) {
         Long noteId = unlikeNoteReqVO.getId();
-        checkNoteIsExist(noteId);
+        Long creatorId = checkNoteIsExistAndGetCreatorId(noteId);
         Long userId = LoginUserContextHolder.getUserId();
         String bloomUserNoteLikeListKey = RedisKeyConstants.buildBloomUserNoteLikeListKey(userId);
         DefaultRedisScript<Long> script = new DefaultRedisScript<>();
@@ -678,6 +681,7 @@ public class NoteServiceImpl implements NoteService {
                 .noteId(noteId)
                 .type(LikeUnlikeNoteTypeEnum.UNLIKE.getCode())
                 .createTime(LocalDateTime.now())
+                .noteCreatorId(creatorId)
                 .build();
         Message<String> message = MessageBuilder.withPayload(JsonUtils.toJsonString(likeUnlikeNoteMqDTO)).build();
         String destination = MQConstants.TOPIC_LIKE_OR_UNLIKE + ":" + MQConstants.TAG_UNLIKE;
@@ -699,7 +703,7 @@ public class NoteServiceImpl implements NoteService {
     @Override
     public Response<?> collectNote(CollectNoteReqVO collectNoteReqVO) {
         Long noteId = collectNoteReqVO.getId();
-        checkNoteIsExist(noteId);
+        Long creatorId = checkNoteIsExistAndGetCreatorId(noteId);
         Long userId = LoginUserContextHolder.getUserId();
         String userNoteCollectListKey = RedisKeyConstants.buildBloomUserNoteCollectListKey(userId);
         DefaultRedisScript<Long> script = new DefaultRedisScript<>();
@@ -767,6 +771,7 @@ public class NoteServiceImpl implements NoteService {
                 .noteId(noteId)
                 .type(CollectUnCollectNoteTypeEnum.COLLECT.getCode())
                 .createTime(now)
+                .noteCreatorId(creatorId)
                 .build();
         Message<String> message = MessageBuilder.withPayload(JsonUtils.toJsonString(collectUnCollectNoteMqDTO))
                 .build();
@@ -836,7 +841,7 @@ public class NoteServiceImpl implements NoteService {
     @Override
     public Response<?> unCollectNote(UnCollectNoteReqVO unCollectNoteReqVO) {
         Long noteId = unCollectNoteReqVO.getId();
-        checkNoteIsExist(noteId);
+        Long creatorId = checkNoteIsExistAndGetCreatorId(noteId);
         Long userId = LoginUserContextHolder.getUserId();
         String bloomUserNoteCollectListKey = RedisKeyConstants.buildBloomUserNoteCollectListKey(userId);
         DefaultRedisScript<Long> script = new DefaultRedisScript<>();
@@ -884,6 +889,7 @@ public class NoteServiceImpl implements NoteService {
                 .noteId(noteId)
                 .type(CollectUnCollectNoteTypeEnum.UN_COLLECT.getCode())
                 .createTime(LocalDateTime.now())
+                .noteCreatorId(creatorId)
                 .build();
         Message<String> message = MessageBuilder.withPayload(JsonUtils.toJsonString(collectUnCollectNoteMqDTO)).build();
         String destination = MQConstants.TOPIC_COLLECT_OR_UN_COLLECT + ":" + MQConstants.TAG_UN_COLLECT;
