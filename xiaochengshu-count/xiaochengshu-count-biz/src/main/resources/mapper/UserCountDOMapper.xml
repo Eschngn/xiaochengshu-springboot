@@ -130,4 +130,9 @@
       values (#{userId}, #{count}) on duplicate key
       update like_total=like_total+(#{count});
   </insert>
+  <insert id="insertOrUpdateCollectTotalByUserId" parameterType="map">
+      insert into t_user_count(user_id, collect_total)
+      values (#{userId}, #{count}) on duplicate key
+      update collect_total=collect_total+(#{count})
+  </insert>
 </mapper>

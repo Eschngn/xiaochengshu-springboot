@@ -51,6 +51,7 @@ public class CountNoteLike2DBConsumer implements RocketMQListener<String> {
                     try{
                         userCountDOMapper.insertOrUpdateLikeTotalByUserId(count,creatorId);
                         noteCountDOMapper.insertOrUpdateLikeTotalByNoteId(count,noteId);
+                        return true;
                     }catch (Exception e){
                         status.setRollbackOnly(); // 标记事务为回滚
                         log.error("", e);

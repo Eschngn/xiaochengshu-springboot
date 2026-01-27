@@ -4,9 +4,10 @@ import com.chengliuxiang.framework.common.util.JsonUtils;
 import com.chengliuxiang.xiaochengshu.count.biz.constant.MQConstants;
 import com.chengliuxiang.xiaochengshu.count.biz.constant.RedisKeyConstants;
 import com.chengliuxiang.xiaochengshu.count.biz.enums.CollectUnCollectNoteTypeEnum;
+import com.chengliuxiang.xiaochengshu.count.biz.model.dto.AggregationCountCollectUnCollectNoteMqDTO;
 import com.chengliuxiang.xiaochengshu.count.biz.model.dto.CountCollectUnCollectNoteMqDTO;
 import com.github.phantomthief.collection.BufferTrigger;
-import com.google.common.collect.Maps;
+import com.google.common.collect.Lists;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.producer.SendCallback;
@@ -55,12 +56,15 @@ public class CountNoteCollectConsumer implements RocketMQListener<String> {
                 = bodys.stream().map(body -> JsonUtils.parseObject(body, CountCollectUnCollectNoteMqDTO.class)).toList();
         Map<Long, List<CountCollectUnCollectNoteMqDTO>> groupMap
                 = countCollectUnCollectNoteMqDTOS.stream().collect(Collectors.groupingBy(CountCollectUnCollectNoteMqDTO::getNoteId));
-        Map<Long, Integer> countMap = Maps.newHashMap();
+        List<AggregationCountCollectUnCollectNoteMqDTO> countList = Lists.newArrayList();
         for (Map.Entry<Long, List<CountCollectUnCollectNoteMqDTO>> entry : groupMap.entrySet()) {
             List<CountCollectUnCollectNoteMqDTO> list = entry.getValue();
             int finalCount = 0;
+            Long noteId = entry.getKey();
+            Long creatorId = null;
             for (CountCollectUnCollectNoteMqDTO countCollectUnCollectNoteMqDTO : list) {
                 Integer type = countCollectUnCollectNoteMqDTO.getType();
+                creatorId = countCollectUnCollectNoteMqDTO.getNoteCreatorId();
                 CollectUnCollectNoteTypeEnum collectUnCollectNoteTypeEnum = CollectUnCollectNoteTypeEnum.valueOf(type);
                 if (Objects.isNull(collectUnCollectNoteTypeEnum)) continue;
                 switch (collectUnCollectNoteTypeEnum) {
@@ -68,17 +72,31 @@ public class CountNoteCollectConsumer implements RocketMQListener<String> {
                     case UN_COLLECT -> finalCount -= 1;
                 }
             }
-            countMap.put(entry.getKey(), finalCount);
+            countList.add(AggregationCountCollectUnCollectNoteMqDTO.builder()
+                    .noteId(noteId)
+                    .creatorId(creatorId)
+                    .count(finalCount)
+                    .build());
+
         }
-        log.info("## 【笔记收藏数】聚合后的计数数据: {}", JsonUtils.toJsonString(countMap));
-        countMap.forEach((k, v) -> {
-            String redisKey = RedisKeyConstants.buildCountNoteKey(k);
-            Boolean isExisted = redisTemplate.hasKey(redisKey);
-            if (isExisted) {
-                redisTemplate.opsForHash().increment(redisKey, RedisKeyConstants.FIELD_COLLECT_TOTAL, v);
+        log.info("## 【笔记收藏数】聚合后的计数数据: {}", JsonUtils.toJsonString(countList));
+        countList.forEach(item -> {
+            Integer count = item.getCount();
+            Long creatorId = item.getCreatorId();
+            Long noteId = item.getNoteId();
+            String countNoteRedisKey = RedisKeyConstants.buildCountNoteKey(noteId);
+            boolean isCountNoteExisted = redisTemplate.hasKey(countNoteRedisKey);
+            if (isCountNoteExisted) {
+                redisTemplate.opsForHash().increment(countNoteRedisKey, RedisKeyConstants.FIELD_COLLECT_TOTAL, count);
+            }
+
+            String countUserRedisKey = RedisKeyConstants.buildCountUserKey(creatorId);
+            boolean isCountUserExisted = redisTemplate.hasKey(countUserRedisKey);
+            if (isCountUserExisted) {
+                redisTemplate.opsForHash().increment(countUserRedisKey, RedisKeyConstants.FIELD_COLLECT_TOTAL, count);
             }
         });
-        Message<String> message = MessageBuilder.withPayload(JsonUtils.toJsonString(countMap)).build();
+        Message<String> message = MessageBuilder.withPayload(JsonUtils.toJsonString(countList)).build();
         rocketMQTemplate.asyncSend(MQConstants.TOPIC_COUNT_NOTE_COLLECT_2_DB, message, new SendCallback() {
             @Override
             public void onSuccess(SendResult sendResult) {
