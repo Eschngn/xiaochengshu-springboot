@@ -10,6 +10,8 @@ public class RedisKeyConstants {
 
     public static final String FIElD_FOLLOWING_TOTAL = "followingTotal";
 
+    public static final String FIELD_NOTE_TOTAL = "noteTotal";
+
     /**
      * 笔记维度计数
      */

@@ -135,4 +135,9 @@
       values (#{userId}, #{count}) on duplicate key
       update collect_total=collect_total+(#{count})
   </insert>
+    <insert id="insertOrUpdateNoteTotalByUserId" parameterType="map">
+      insert into t_user_count(user_id, note_total)
+      values (#{userId}, #{count}) on duplicate key
+      update note_total=note_total+(#{count})
+    </insert>
 </mapper>

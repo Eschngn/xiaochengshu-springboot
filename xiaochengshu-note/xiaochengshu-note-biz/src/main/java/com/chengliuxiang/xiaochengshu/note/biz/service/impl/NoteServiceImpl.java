@@ -19,6 +19,7 @@ import com.chengliuxiang.xiaochengshu.note.biz.domain.mapper.TopicDOMapper;
 import com.chengliuxiang.xiaochengshu.note.biz.enums.*;
 import com.chengliuxiang.xiaochengshu.note.biz.model.dto.CollectUnCollectNoteMqDTO;
 import com.chengliuxiang.xiaochengshu.note.biz.model.dto.LikeUnlikeNoteMqDTO;
+import com.chengliuxiang.xiaochengshu.note.biz.model.dto.NoteOperateMqDTO;
 import com.chengliuxiang.xiaochengshu.note.biz.model.vo.*;
 import com.chengliuxiang.xiaochengshu.note.biz.rpc.DistributedIdGeneratorRpcService;
 import com.chengliuxiang.xiaochengshu.note.biz.rpc.KeyValueRpcService;
@@ -44,6 +45,7 @@ import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.scripting.support.ResourceScriptSource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -158,10 +160,29 @@ public class NoteServiceImpl implements NoteService {
                 keyValueRpcService.deleteNoteContent(contentUuid);
             }
         }
+        NoteOperateMqDTO noteOperateMqDTO = NoteOperateMqDTO.builder()
+                .noteId(Long.valueOf(snowflakeId))
+                .creatorId(creatorId)
+                .type(NoteOperateEnum.PUBLISH.getCode())
+                .build();
+        Message<String> message = MessageBuilder.withPayload(JsonUtils.toJsonString(noteOperateMqDTO)).build();
+        String destination = MQConstants.TOPIC_NOTE_OPERATE + ":" + MQConstants.TAG_NOTE_PUBLISH;
+        rocketMQTemplate.asyncSend(destination, message, new SendCallback() {
+            @Override
+            public void onSuccess(SendResult sendResult) {
+                log.info("==> 【笔记发布】MQ 发送成功，SendResult: {}", sendResult);
+            }
+
+            @Override
+            public void onException(Throwable throwable) {
+                log.error("==> 【笔记发布】MQ 发送异常: ", throwable);
+            }
+        });
         return Response.success();
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Response<?> deleteNote(DeleteNoteReqVO deleteNoteReqVO) {
         Long noteId = deleteNoteReqVO.getId();
         NoteDO selectNoteDO = noteDOMapper.selectByPrimaryKey(noteId);
@@ -185,6 +206,24 @@ public class NoteServiceImpl implements NoteService {
         redisTemplate.delete(noteDetailKey);
         rocketMQTemplate.syncSend(MQConstants.TOPIC_DELETE_NOTE_LOCAL_CACHE, noteId);
         log.info("====> MQ：删除笔记本地缓存消息发送成功");
+        NoteOperateMqDTO noteOperateMqDTO = NoteOperateMqDTO.builder()
+                .noteId(Long.valueOf(noteId))
+                .creatorId(selectNoteDO.getCreatorId())
+                .type(NoteOperateEnum.DELETE.getCode())
+                .build();
+        Message<String> message = MessageBuilder.withPayload(JsonUtils.toJsonString(noteOperateMqDTO)).build();
+        String destination = MQConstants.TOPIC_NOTE_OPERATE + ":" + MQConstants.TAG_NOTE_DELETE;
+        rocketMQTemplate.asyncSend(destination, message, new SendCallback() {
+            @Override
+            public void onSuccess(SendResult sendResult) {
+                log.info("==> 【笔记删除】MQ 发送成功，SendResult: {}", sendResult);
+            }
+
+            @Override
+            public void onException(Throwable throwable) {
+                log.error("==> 【笔记删除】MQ 发送异常: ", throwable);
+            }
+        });
         return Response.success();
     }
 
