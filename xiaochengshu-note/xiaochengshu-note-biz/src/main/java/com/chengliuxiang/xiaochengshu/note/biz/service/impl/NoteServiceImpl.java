@@ -469,7 +469,7 @@ public class NoteServiceImpl implements NoteService {
 
         rocketMQTemplate.syncSend(MQConstants.TOPIC_DELETE_NOTE_LOCAL_CACHE, noteId);
         log.info("====> MQ：删除笔记本地缓存发送成功");
-
+        // TODO：仅自己可见的笔记是否纳入笔记发布数的统计？
         return Response.success();
     }
 
