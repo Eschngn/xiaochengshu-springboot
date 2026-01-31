@@ -34,7 +34,14 @@ public class CreateJobXxlJob {
             for (int hashKey = 0; hashKey < shards; hashKey++) {
                 String tableNameSuffix = TableConstants.buildTableNameSuffix(date, hashKey);
                 createTableMapper.createDataAlignFollowingCountTempTable(tableNameSuffix);
+                createTableMapper.createDataAlignFollowingCountTempTable(tableNameSuffix);
+                createTableMapper.createDataAlignNoteLikeCountTempTable(tableNameSuffix);
+                createTableMapper.createDataAlignUserLikeCountTempTable(tableNameSuffix);
+                createTableMapper.createDataAlignNoteCollectCountTempTable(tableNameSuffix);
+                createTableMapper.createDataAlignUserCollectCountTempTable(tableNameSuffix);
+                createTableMapper.createDataAlignNotePublishCountTempTable(tableNameSuffix);
             }
         }
+        XxlJobHelper.log("## 结束创建日增量数据表，日期：{}...", date);
     }
 }

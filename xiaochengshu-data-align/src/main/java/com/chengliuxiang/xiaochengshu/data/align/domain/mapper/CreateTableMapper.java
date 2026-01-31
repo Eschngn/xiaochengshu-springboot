@@ -7,4 +7,40 @@ public interface CreateTableMapper {
      * @param tableNameSuffix
      */
     void createDataAlignFollowingCountTempTable(String tableNameSuffix);
+
+    /**
+     * 创建日增量表：粉丝数计数变更
+     * @param tableNameSuffix
+     */
+    void createDataAlignFansCountTempTable(String tableNameSuffix);
+
+    /**
+     * 创建日增量表：笔记获得收藏数计数变更
+     * @param tableNameSuffix
+     */
+    void createDataAlignNoteCollectCountTempTable(String tableNameSuffix);
+
+    /**
+     * 创建日增量表：用户获得收藏数计数变更
+     * @param tableNameSuffix
+     */
+    void createDataAlignUserCollectCountTempTable(String tableNameSuffix);
+
+    /**
+     * 创建日增量表：笔记获得点赞数计数变更
+     * @param tableNameSuffix
+     */
+    void createDataAlignNoteLikeCountTempTable(String tableNameSuffix);
+
+    /**
+     * 创建日增量表：用户获得点赞数计数变更
+     * @param tableNameSuffix
+     */
+    void createDataAlignUserLikeCountTempTable(String tableNameSuffix);
+
+    /**
+     * 创建日增量表：用户笔记发布数计数变更
+     * @param tableNameSuffix
+     */
+    void createDataAlignNotePublishCountTempTable(String tableNameSuffix);
 }
