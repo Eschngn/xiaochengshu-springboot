@@ -66,3 +66,9 @@ xxl:
 table:
   shards: 3 #日增量表分片数
 
+rocketmq:
+  name-server: 127.0.0.1:9876 # name server 地址
+  consumer:
+    group: xiaochengshu_group
+    pull-batch-size: 5 # 每次拉取的最大消息数
+

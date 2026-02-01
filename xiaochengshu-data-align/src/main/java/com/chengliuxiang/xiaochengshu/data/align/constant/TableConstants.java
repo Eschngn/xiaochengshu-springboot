@@ -13,7 +13,7 @@ public class TableConstants {
      * @param hashKey
      * @return
      */
-    public static String buildTableNameSuffix(String date, int hashKey) {
+    public static String buildTableNameSuffix(String date, long hashKey) {
         return date + TABLE_NAME_SEPARATE + hashKey;
     }
 }
