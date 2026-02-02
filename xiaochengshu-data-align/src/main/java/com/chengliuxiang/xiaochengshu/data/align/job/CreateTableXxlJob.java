@@ -14,7 +14,7 @@ import java.time.format.DateTimeFormatter;
 
 @Component
 @RefreshScope
-public class CreateJobXxlJob {
+public class CreateTableXxlJob {
 
     /**
      * 表总分片数
