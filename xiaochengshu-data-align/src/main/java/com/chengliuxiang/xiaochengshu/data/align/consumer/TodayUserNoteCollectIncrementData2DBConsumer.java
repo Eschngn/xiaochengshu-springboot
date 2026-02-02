@@ -25,7 +25,7 @@ import java.util.Objects;
 
 @Component
 @RocketMQMessageListener(consumerGroup = "xiaochengshu_group_data_align_" + MQConstants.TOPIC_COUNT_NOTE_COLLECT,
-        topic = MQConstants.TOPIC_COUNT_NOTE_LIKE)
+        topic = MQConstants.TOPIC_COUNT_NOTE_COLLECT)
 @Slf4j
 public class TodayUserNoteCollectIncrementData2DBConsumer implements RocketMQListener<String> {
 

@@ -22,5 +22,5 @@ public interface InsertRecordMapper {
     /**
      * 用户获得的收藏数：计数变更
      */
-    void insert2DataAlignUserCollectCountTempTable(@Param("tableNameSuffix") String tableNamesSuffix, @Param("noteId") Long userId);
+    void insert2DataAlignUserCollectCountTempTable(@Param("tableNameSuffix") String tableNamesSuffix, @Param("userId") Long userId);
 }
