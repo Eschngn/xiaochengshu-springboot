@@ -15,7 +15,7 @@ public class RedisKeyConstants {
     /**
      * 布隆过滤器：日增量变更数据，用户笔记收藏，取消收藏（笔记 ID）前缀
      */
-    public static final String BLOOM_TODAY_NOTE_COLLECT_LIST_KEY="bloom:dataAlign:note:collect:noteIds:";
+    public static final String BLOOM_TODAY_NOTE_COLLECT_LIST_KEY = "bloom:dataAlign:note:collect:noteIds:";
 
     /**
      * 布隆过滤器：日增量变更数据，用户笔记收藏，取消收藏（笔记发布者 ID）前缀
@@ -79,6 +79,7 @@ public class RedisKeyConstants {
 
     /**
      * 构建完整的布隆过滤器：日增量变更数据，用户笔记发布，删除 KEY
+     *
      * @param date
      * @return
      */
@@ -88,6 +89,7 @@ public class RedisKeyConstants {
 
     /**
      * 构建完整的布隆过滤器：日增量变更数据，用户关注数 KEY
+     *
      * @param date
      * @return
      */
@@ -97,10 +99,18 @@ public class RedisKeyConstants {
 
     /**
      * 构建完整的布隆过滤器：日增量变更数据，用户粉丝数 KEY
+     *
      * @param date
      * @return
      */
     public static String buildBloomUserFansListKey(String date) {
         return BLOOM_TODAY_USER_FANS_LIST_KEY + date;
+    }
+
+    private static final String COUNT_USER_KEY_PREFIX = "count:user:";
+    public static final String FIELD_FOLLOWING_TOTAL = "followingTotal";
+
+    public static String buildCountUserKey(Long userId) {
+        return COUNT_USER_KEY_PREFIX + userId;
     }
 }
