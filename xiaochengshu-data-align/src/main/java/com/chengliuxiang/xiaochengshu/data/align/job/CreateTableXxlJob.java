@@ -34,7 +34,7 @@ public class CreateTableXxlJob {
             for (int hashKey = 0; hashKey < shards; hashKey++) {
                 String tableNameSuffix = TableConstants.buildTableNameSuffix(date, hashKey);
                 createTableMapper.createDataAlignFollowingCountTempTable(tableNameSuffix);
-                createTableMapper.createDataAlignFollowingCountTempTable(tableNameSuffix);
+                createTableMapper.createDataAlignFansCountTempTable(tableNameSuffix);
                 createTableMapper.createDataAlignNoteLikeCountTempTable(tableNameSuffix);
                 createTableMapper.createDataAlignUserLikeCountTempTable(tableNameSuffix);
                 createTableMapper.createDataAlignNoteCollectCountTempTable(tableNameSuffix);

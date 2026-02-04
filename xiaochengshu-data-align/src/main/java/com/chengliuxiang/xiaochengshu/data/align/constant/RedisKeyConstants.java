@@ -28,6 +28,16 @@ public class RedisKeyConstants {
     public static final String BLOOM_TODAY_USER_NOTE_PUBLISH_LIST_KEY = "bloom:dataAlign:user:publish:userIds";
 
     /**
+     * 布隆过滤器：日增量变更数据，用户关注数 前缀
+     */
+    public static final String BLOOM_TODAY_USER_FOLLOW_LIST_KEY = "bloom:dataAlign:user:follow:userIds";
+
+    /**
+     * 布隆过滤器：日增量变更数据，用户粉丝数 前缀
+     */
+    public static final String BLOOM_TODAY_USER_FANS_LIST_KEY = "bloom:dataAlign:user:fans:userIds";
+
+    /**
      * 构建完整的布隆过滤器：日增量变更数据，用户笔记点赞，取消点赞（笔记 ID） KEY
      *
      * @param date
@@ -74,5 +84,23 @@ public class RedisKeyConstants {
      */
     public static String buildBloomUserNotePublishListKey(String date) {
         return BLOOM_TODAY_USER_NOTE_PUBLISH_LIST_KEY + date;
+    }
+
+    /**
+     * 构建完整的布隆过滤器：日增量变更数据，用户关注数 KEY
+     * @param date
+     * @return
+     */
+    public static String buildBloomUserFollowListKey(String date) {
+        return BLOOM_TODAY_USER_FOLLOW_LIST_KEY + date;
+    }
+
+    /**
+     * 构建完整的布隆过滤器：日增量变更数据，用户粉丝数 KEY
+     * @param date
+     * @return
+     */
+    public static String buildBloomUserFansListKey(String date) {
+        return BLOOM_TODAY_USER_FANS_LIST_KEY + date;
     }
 }
