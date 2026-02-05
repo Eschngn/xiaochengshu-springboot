@@ -6,4 +6,7 @@ public interface UpdateRecordMapper {
 
     int updateUserFollowingTotalByUserId(@Param("userId") long userId,
                                          @Param("followingTotal") int followingTotal);
+
+    int updateNoteLikeTotalByNoteId(@Param("noteId") long noteId,
+                                    @Param("noteLikeTotal") int noteLikeTotal);
 }

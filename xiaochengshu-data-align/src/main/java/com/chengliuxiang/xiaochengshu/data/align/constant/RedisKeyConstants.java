@@ -113,4 +113,11 @@ public class RedisKeyConstants {
     public static String buildCountUserKey(Long userId) {
         return COUNT_USER_KEY_PREFIX + userId;
     }
+
+    private static final String COUNT_NOTE_KEY_PREFIX = "count:note:";
+    public static String FIELD_LIKE_TOTAL = "likeTotal";
+
+    public static String buildCountNoteKey(Long noteId) {
+        return COUNT_NOTE_KEY_PREFIX + noteId;
+    }
 }
