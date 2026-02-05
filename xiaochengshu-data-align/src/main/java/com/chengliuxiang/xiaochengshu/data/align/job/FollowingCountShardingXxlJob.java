@@ -34,7 +34,7 @@ public class FollowingCountShardingXxlJob {
     public void followingCountShardingJobHandler() throws Exception {
         int shardIndex = XxlJobHelper.getShardIndex();
         int shardTotal = XxlJobHelper.getShardTotal();
-        XxlJobHelper.log("===========> 开始定时分片广播任务：对当日发生变更的用户关注数进行对齐");
+        XxlJobHelper.log("===========> 开始定时分片广播任务：对昨日发生变更的用户关注数进行对齐");
         XxlJobHelper.log("分片参数：当前分片序号={},总分片数={}", shardIndex, shardTotal);
         log.info("分片参数：当前分片序号={},总分片数={}", shardIndex, shardTotal);
         String date = LocalDate.now().minusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
@@ -60,6 +60,6 @@ public class FollowingCountShardingXxlJob {
             deleteRecordMapper.batchDeleteDataAlignFollowingCountTempTable(tableNameSuffix, userIds);
             processedTotal += userIds.size();
         }
-        XxlJobHelper.log("===========>  结束定时分片广播任务：对当日发生变更的用户关注数进行对齐，共对齐记录数：{}", processedTotal);
+        XxlJobHelper.log("===========>  结束定时分片广播任务：对昨日发生变更的用户关注数进行对齐，共对齐记录数：{}", processedTotal);
     }
 }
