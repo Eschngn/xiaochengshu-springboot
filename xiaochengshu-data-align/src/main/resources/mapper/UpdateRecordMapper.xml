@@ -7,4 +7,7 @@
     <update id="updateNoteLikeTotalByNoteId" parameterType="map">
         update t_note_count set like_total=#{noteLikeTotal} where note_id=#{noteId}
     </update>
+    <update id="updateNoteCollectTotalByNoteId" parameterType="map">
+        update t_note_count set collect_total=#{noteCollectTotal} where note_id=#{noteId}
+    </update>
 </mapper>

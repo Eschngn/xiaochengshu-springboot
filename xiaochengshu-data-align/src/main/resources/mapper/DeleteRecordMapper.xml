@@ -15,4 +15,11 @@
             #{noteId}
         </foreach>
     </delete>
+    <delete id="batchDeleteDataAlignNoteCollectCountTempTable">
+        delete from `t_data_align_note_collect_count_temp_${tableNameSuffix}`
+        where note_id in
+        <foreach collection="noteIds" open="(" item="noteId" close=")" separator=",">
+            #{noteId}
+        </foreach>
+    </delete>
 </mapper>

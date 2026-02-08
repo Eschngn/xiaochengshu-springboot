@@ -16,9 +16,19 @@ public interface DeleteRecordMapper {
 
     /**
      * 日增量表：笔记点赞计数变更 - 批量删除
+     *
      * @param tableNameSuffix
      * @param noteIds
      */
     void batchDeleteDataAlignNoteLikeCountTempTable(@Param("tableNameSuffix") String tableNameSuffix,
                                                     @Param("noteIds") List<Long> noteIds);
+
+    /**
+     * 日增量表：笔记收藏计数变更 - 批量删除
+     *
+     * @param tableNameSuffix
+     * @param noteIds
+     */
+    void batchDeleteDataAlignNoteCollectCountTempTable(@Param("tableNameSuffix") String tableNameSuffix,
+                                                        @Param("noteIds") List<Long> noteIds);
 }

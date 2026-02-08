@@ -14,4 +14,10 @@
     <select id="selectCountFromNoteLikeTableByNoteId" resultType="int">
         select count(*) from t_note_like where note_id=#{noteId} and status=1
     </select>
+    <select id="selectBatchFromDataAlignNoteCollectCountTempTable" resultType="long" parameterType="map">
+        select note_id from `t_data_align_note_collect_count_temp_${tableNameSuffix}` order by id limit #{batchSize}
+    </select>
+    <select id="selectCountFromNoteCollectTableByNoteId" resultType="int">
+        select count(*) from t_note_collection where note_id=#{noteId} and status=1
+    </select>
 </mapper>

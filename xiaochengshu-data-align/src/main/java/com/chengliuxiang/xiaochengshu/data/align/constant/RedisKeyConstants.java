@@ -116,6 +116,7 @@ public class RedisKeyConstants {
 
     private static final String COUNT_NOTE_KEY_PREFIX = "count:note:";
     public static String FIELD_LIKE_TOTAL = "likeTotal";
+    public static String FIELD_COLLECT_TOTAL = "collectTotal";
 
     public static String buildCountNoteKey(Long noteId) {
         return COUNT_NOTE_KEY_PREFIX + noteId;

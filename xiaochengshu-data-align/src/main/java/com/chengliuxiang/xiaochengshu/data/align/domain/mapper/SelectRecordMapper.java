@@ -26,6 +26,7 @@ public interface SelectRecordMapper {
 
     /**
      * 日增量表：笔记点赞数变更 - 批量查询
+     *
      * @param tableNameSuffix
      * @param batchSize
      * @return
@@ -35,8 +36,27 @@ public interface SelectRecordMapper {
 
     /**
      * 查询 t_note_like 笔记点赞表，获取点赞总数
+     *
      * @param noteId
      * @return
      */
     int selectCountFromNoteLikeTableByNoteId(@Param("noteId") long noteId);
+
+    /**
+     * 日增量表：笔记点赞数变更 - 批量查询
+     *
+     * @param tableNameSuffix
+     * @param batchSize
+     * @return
+     */
+    List<Long> selectBatchFromDataAlignNoteCollectCountTempTable(@Param("tableNameSuffix") String tableNameSuffix,
+                                                                 @Param("batchSize") int batchSize);
+
+    /**
+     * 查询 t_note_collect 笔记收藏表，获取收藏总数
+     *
+     * @param noteId
+     * @return
+     */
+    int selectCountFromNoteCollectTableByNoteId(@Param("noteId") long noteId);
 }
