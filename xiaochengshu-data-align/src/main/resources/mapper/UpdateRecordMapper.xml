@@ -10,4 +10,7 @@
     <update id="updateNoteCollectTotalByNoteId" parameterType="map">
         update t_note_count set collect_total=#{noteCollectTotal} where note_id=#{noteId}
     </update>
+    <update id="updateUserFansTotalByUserId">
+        update t_user_count set fans_total=#{fansTotal} where user_id = #{userId}
+    </update>
 </mapper>

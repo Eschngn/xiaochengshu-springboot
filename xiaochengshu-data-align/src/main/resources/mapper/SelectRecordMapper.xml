@@ -20,4 +20,10 @@
     <select id="selectCountFromNoteCollectTableByNoteId" resultType="int">
         select count(*) from t_note_collection where note_id=#{noteId} and status=1
     </select>
+    <select id="selectBatchFromDataAlignFansCountTempTable" resultType="long" parameterType="map">
+        select user_id from `t_data_align_fans_count_temp_${tableNameSuffix}` order by id limit #{batchSize}
+    </select>
+    <select id="selectCountFromFansTableByUserId" resultType="int">
+        select count(*) from t_fans where user_id=#{userId}
+    </select>
 </mapper>

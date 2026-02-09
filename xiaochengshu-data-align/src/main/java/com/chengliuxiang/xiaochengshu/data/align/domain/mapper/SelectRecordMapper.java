@@ -43,7 +43,7 @@ public interface SelectRecordMapper {
     int selectCountFromNoteLikeTableByNoteId(@Param("noteId") long noteId);
 
     /**
-     * 日增量表：笔记点赞数变更 - 批量查询
+     * 日增量表：笔记收藏数变更 - 批量查询
      *
      * @param tableNameSuffix
      * @param batchSize
@@ -59,4 +59,22 @@ public interface SelectRecordMapper {
      * @return
      */
     int selectCountFromNoteCollectTableByNoteId(@Param("noteId") long noteId);
+
+    /**
+     * 日增量表：粉丝数计数变更 - 批量查询
+     *
+     * @param tableNameSuffix
+     * @param batchSize
+     * @return
+     */
+    List<Long> selectBatchFromDataAlignFansCountTempTable(@Param("tableNameSuffix") String tableNameSuffix,
+                                                          @Param("batchSize") int batchSize);
+
+    /**
+     * t_fans 粉丝表，获取粉丝总数
+     *
+     * @param userId
+     * @return
+     */
+    int selectCountFromFansTableByUserId(@Param("userId") long userId);
 }

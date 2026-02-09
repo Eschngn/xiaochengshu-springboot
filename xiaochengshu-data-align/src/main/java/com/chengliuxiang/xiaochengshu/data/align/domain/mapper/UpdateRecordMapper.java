@@ -12,4 +12,7 @@ public interface UpdateRecordMapper {
 
     int updateNoteCollectTotalByNoteId(@Param("noteId") long noteId,
                                        @Param("noteCollectTotal") int noteCollectTotal);
+
+    int updateUserFansTotalByUserId(@Param("userId") long userId,
+                                    @Param("fansTotal") int fansTotal);
 }
