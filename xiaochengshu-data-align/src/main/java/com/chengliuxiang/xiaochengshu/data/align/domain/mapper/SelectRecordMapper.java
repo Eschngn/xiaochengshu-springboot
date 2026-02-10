@@ -77,4 +77,23 @@ public interface SelectRecordMapper {
      * @return
      */
     int selectCountFromFansTableByUserId(@Param("userId") long userId);
+
+
+    /**
+     * 日增量表：用户获得点赞数变更 - 批量查询
+     *
+     * @param tableNameSuffix
+     * @param batchSize
+     * @return
+     */
+    List<Long> selectBatchFromDataAlignUserLikeCountTempTable(@Param("tableNameSuffix") String tableNameSuffix,
+                                                              @Param("batchSize") int batchSize);
+
+    /**
+     * 查询 t_note_like 笔记点赞表和 t_note 笔记表，获取用户获得点赞总数
+     *
+     * @param userId
+     * @return
+     */
+    int selectUserLikeCountFromNoteLikeAndNoteTableByUserId(@Param("userId") long userId);
 }

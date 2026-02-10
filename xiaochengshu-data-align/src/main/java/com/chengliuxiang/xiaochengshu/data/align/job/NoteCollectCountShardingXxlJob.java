@@ -36,7 +36,7 @@ public class NoteCollectCountShardingXxlJob {
         XxlJobHelper.log("===========> 开始定时分片广播任务：对昨日发生变更的笔记收藏数进行对齐");
         XxlJobHelper.log("分片参数：当前分片序号={},总分片数={}", shardIndex, shardTotal);
         log.info("分片参数：当前分片序号={},总分片数={}", shardIndex, shardTotal);
-        String date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String date = LocalDate.now().minusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String tableNameSuffix = TableConstants.buildTableNameSuffix(date, shardIndex);
         int batchSize = 1000; // 一批次 1000 条
         int processedTotal = 0; // 共对齐了多少条记录，默认为 0

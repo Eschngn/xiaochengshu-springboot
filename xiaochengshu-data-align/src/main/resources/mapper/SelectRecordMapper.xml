@@ -26,4 +26,12 @@
     <select id="selectCountFromFansTableByUserId" resultType="int">
         select count(*) from t_fans where user_id=#{userId}
     </select>
+    <select id="selectBatchFromDataAlignUserLikeCountTempTable" resultType="long" parameterType="map">
+        select user_id from `t_data_align_user_like_count_temp_${tableNameSuffix}` order by id limit #{batchSize}
+    </select>
+    <select id="selectUserLikeCountFromNoteLikeAndNoteTableByUserId" resultType="int" parameterType="map">
+        select count(*) from t_note_like where status=1 and note_id in (
+            select note_id from t_note where creator_id=#{userId} and status=1
+            )
+    </select>
 </mapper>

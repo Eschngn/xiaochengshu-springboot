@@ -19,7 +19,8 @@ import java.util.List;
 
 @Component
 @Slf4j
-public class FansCountShardingXxlJob {
+public class UserLikeCountShardingXxlJob {
+
     @Resource
     private SelectRecordMapper selectRecordMapper;
     @Resource
@@ -29,35 +30,35 @@ public class FansCountShardingXxlJob {
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
 
-    @XxlJob("fansCountShardingJobHandler")
-    public void fansCountShardingJobHandler() {
+    @XxlJob("userLikeCountShardingJobHandler")
+    public void userLikeCountShardingJobHandler(){
         int shardIndex = XxlJobHelper.getShardIndex();
         int shardTotal = XxlJobHelper.getShardTotal();
-        XxlJobHelper.log("===========> 开始定时分片广播任务：对昨日发生变更的用户粉丝数进行对齐");
-        XxlJobHelper.log("分片参数：当前分片序号={},总分片数={}", shardIndex, shardTotal);
-        log.info("分片参数：当前分片序号={},总分片数={}", shardIndex, shardTotal);
+        XxlJobHelper.log("===========> 开始定时分片广播任务：对昨日发生变更的用户获得点赞数进行对齐");
+        XxlJobHelper.log("分片参数：当前分片序号 = {}, 总分片数 = {}", shardIndex, shardTotal);
+        log.info("分片参数：当前分片序号 = {}, 总分片数 = {}", shardIndex, shardTotal);
         String date = LocalDate.now().minusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String tableNameSuffix = TableConstants.buildTableNameSuffix(date, shardIndex);
         int batchSize = 1000; // 一批次 1000 条
         int processedTotal = 0; // 共对齐了多少条记录，默认为 0
         for (; ; ) {
-            List<Long> userIds = selectRecordMapper.selectBatchFromDataAlignFansCountTempTable(tableNameSuffix, batchSize);
+            List<Long> userIds = selectRecordMapper.selectBatchFromDataAlignUserLikeCountTempTable(tableNameSuffix, batchSize);
             if (CollUtil.isEmpty(userIds)) break;
             userIds.forEach(userId -> {
-                int followingCount = selectRecordMapper.selectCountFromFansTableByUserId(userId);
-                int count = updateRecordMapper.updateUserFansTotalByUserId(userId, followingCount);
+                int likeTotal = selectRecordMapper.selectUserLikeCountFromNoteLikeAndNoteTableByUserId(userId);
+                int count = updateRecordMapper.updateUserLikeTotalByUserId(userId, likeTotal);
                 if (count > 0) {
-                    String countUserKey = RedisKeyConstants.buildCountUserKey(userId);
-                    boolean isExisted = redisTemplate.hasKey(countUserKey);
+                    String countNoteKey = RedisKeyConstants.buildCountUserKey(userId);
+                    boolean isExisted = redisTemplate.hasKey(countNoteKey);
                     if (isExisted) {
-                        redisTemplate.opsForHash().put(countUserKey, RedisKeyConstants.FIELD_FANS_TOTAL, followingCount);
+                        redisTemplate.opsForHash().put(countNoteKey, RedisKeyConstants.FIELD_LIKE_TOTAL, likeTotal);
                     }
                 }
+
             });
-            // 在日增量表中物理删除这一批次记录
-            deleteRecordMapper.batchDeleteDataAlignFansCountTempTable(tableNameSuffix, userIds);
+            deleteRecordMapper.batchDeleteDataAlignUserLikeCountTempTable(tableNameSuffix, userIds);
             processedTotal += userIds.size();
         }
-        XxlJobHelper.log("===========> 结束定时分片广播任务：对昨日发生变更的用户粉丝数进行对齐，共对齐记录数：{}", processedTotal);
+        XxlJobHelper.log("===========> 结束定时分片广播任务：对昨日发生变更的用户获得点赞数进行对齐，共对齐记录数：{}", processedTotal);
     }
 }

@@ -30,7 +30,7 @@ public interface DeleteRecordMapper {
      * @param noteIds
      */
     void batchDeleteDataAlignNoteCollectCountTempTable(@Param("tableNameSuffix") String tableNameSuffix,
-                                                        @Param("noteIds") List<Long> noteIds);
+                                                       @Param("noteIds") List<Long> noteIds);
 
     /**
      * 日增量表：粉丝数计数变更 - 批量删除
@@ -38,5 +38,8 @@ public interface DeleteRecordMapper {
      * @param userIds
      */
     void batchDeleteDataAlignFansCountTempTable(@Param("tableNameSuffix") String tableNameSuffix,
-                                                     @Param("userIds") List<Long> userIds);
+                                                @Param("userIds") List<Long> userIds);
+
+    void batchDeleteDataAlignUserLikeCountTempTable(@Param("tableNameSuffix") String tableNameSuffix,
+                                                    @Param("userIds") List<Long> userIds);
 }
