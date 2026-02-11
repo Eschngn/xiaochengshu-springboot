@@ -96,4 +96,22 @@ public interface SelectRecordMapper {
      * @return
      */
     int selectUserLikeCountFromNoteLikeAndNoteTableByUserId(@Param("userId") long userId);
+
+    /**
+     * 日增量表：用户获得收藏数变更 - 批量查询
+     *
+     * @param tableNameSuffix
+     * @param batchSize
+     * @return
+     */
+    List<Long> selectBatchFromDataAlignUserCollectCountTempTable(@Param("tableNameSuffix") String tableNameSuffix,
+                                                                 @Param("batchSize") int batchSize);
+
+    /**
+     * 查询 t_note_collect 笔记收藏表和 t_note 笔记表，获取用户获得收藏总数
+     *
+     * @param userId
+     * @return
+     */
+    int selectCountFromUserCollectTableByNoteId(@Param("userId") long userId);
 }

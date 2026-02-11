@@ -18,4 +18,7 @@ public interface UpdateRecordMapper {
 
     int updateUserLikeTotalByUserId(@Param("userId") long userId,
                                     @Param("userLikeTotal") int userLikeTotal);
+
+    int updateUserCollectTotalByUserId(@Param("userId") long userId,
+                                       @Param("userCollectTotal") int userCollectTotal);
 }

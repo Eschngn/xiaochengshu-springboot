@@ -16,4 +16,7 @@
     <update id="updateUserLikeTotalByUserId" parameterType="map">
         update t_user_count set like_total=#{userLikeTotal} where user_id=#{userId}
     </update>
+    <update id="updateUserCollectTotalByUserId" parameterType="map">
+        update t_user_count set collect_total=#{userCollectTotal} where user_id=#{userId}
+    </update>
 </mapper>

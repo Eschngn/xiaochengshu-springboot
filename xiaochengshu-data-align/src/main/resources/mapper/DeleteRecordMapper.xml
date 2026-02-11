@@ -36,4 +36,11 @@
             #{userId}
         </foreach>
     </delete>
+    <delete id="batchDeleteDataAlignUserCollectCountTempTable" parameterType="list">
+        delete from `t_data_align_user_collect_count_temp_${tableNameSuffix}`
+        where user_id in
+        <foreach collection="userIds" open="(" item="userId" close=")" separator=",">
+            #{userId}
+        </foreach>
+    </delete>
 </mapper>
