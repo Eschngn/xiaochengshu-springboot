@@ -113,5 +113,23 @@ public interface SelectRecordMapper {
      * @param userId
      * @return
      */
-    int selectCountFromUserCollectTableByNoteId(@Param("userId") long userId);
+    int selectUserCollectCountFromNoteCollectAndNoteTableByUserId(@Param("userId") long userId);
+
+    /**
+     * 日增量表：用户笔记发布数变更 - 批量查询
+     *
+     * @param tableNameSuffix
+     * @param batchSize
+     * @return
+     */
+    List<Long> selectBatchFromDataAlignNotePublishCountTempTable(@Param("tableNameSuffix") String tableNameSuffix,
+                                                                 @Param("batchSize") int batchSize);
+
+    /**
+     * 查询 t_note 笔记表，获取用户笔记发布总数
+     *
+     * @param userId
+     * @return
+     */
+    int selectNotePublishCountFromNoteTableByUserId(@Param("userId") long userId);
 }

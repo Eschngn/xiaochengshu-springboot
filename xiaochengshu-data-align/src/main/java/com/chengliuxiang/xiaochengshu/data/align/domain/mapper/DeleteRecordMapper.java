@@ -55,4 +55,12 @@ public interface DeleteRecordMapper {
      */
     void batchDeleteDataAlignUserCollectCountTempTable(@Param("tableNameSuffix") String tableNameSuffix,
                                                     @Param("userIds") List<Long> userIds);
+
+    /**
+     * 日增量表：用户发布笔记数变更 - 批量删除
+     * @param tableNameSuffix
+     * @param userIds
+     */
+    void batchDeleteDataAlignNotePublishCountTempTable(@Param("tableNameSuffix") String tableNameSuffix,
+                                                       @Param("userIds") List<Long> userIds);
 }

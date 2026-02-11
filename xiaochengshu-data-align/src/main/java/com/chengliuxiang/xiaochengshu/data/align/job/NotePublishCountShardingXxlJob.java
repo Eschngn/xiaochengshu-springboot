@@ -19,7 +19,7 @@ import java.util.List;
 
 @Component
 @Slf4j
-public class UserCollectCountShardingXxlJob {
+public class NotePublishCountShardingXxlJob {
     @Resource
     private SelectRecordMapper selectRecordMapper;
     @Resource
@@ -29,11 +29,11 @@ public class UserCollectCountShardingXxlJob {
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
 
-    @XxlJob("userCollectCountShardingJobHandler")
-    public void userCollectCountShardingJobHandler() {
+    @XxlJob("notePublishCountShardingJobHandler")
+    public void notePublishCountShardingJobHandler() {
         int shardTotal = XxlJobHelper.getShardTotal();
         int shardIndex = XxlJobHelper.getShardIndex();
-        XxlJobHelper.log("===========> 开始定时分片广播任务：对昨日发生变更的用户获得收藏数进行对齐");
+        XxlJobHelper.log("===========> 开始定时分片广播任务：对昨日发生变更的用户笔记发布数进行对齐");
         XxlJobHelper.log("分片参数：当前分片序号={},总分片数={}", shardIndex, shardTotal);
         log.info("分片参数：当前分片序号={},总分片数={}", shardIndex, shardTotal);
         String date = LocalDate.now().minusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
@@ -41,21 +41,21 @@ public class UserCollectCountShardingXxlJob {
         int batchSize = 1000; // 一批次 1000 条
         int processedTotal = 0; // 共对齐了多少条记录，默认为 0
         for (; ; ) {
-            List<Long> userIds = selectRecordMapper.selectBatchFromDataAlignUserCollectCountTempTable(tableNameSuffix, batchSize);
+            List<Long> userIds = selectRecordMapper.selectBatchFromDataAlignNotePublishCountTempTable(tableNameSuffix, batchSize);
             if (CollUtil.isEmpty(userIds)) break;
             userIds.forEach(userId -> {
-                int collectTotal = selectRecordMapper.selectUserCollectCountFromNoteCollectAndNoteTableByUserId(userId);
-                int count = updateRecordMapper.updateUserCollectTotalByUserId(userId, collectTotal);
+                int notePublishTotal = selectRecordMapper.selectNotePublishCountFromNoteTableByUserId(userId);
+                int count = updateRecordMapper.updateNotePublishTotalByUserId(userId, notePublishTotal);
                 if (count > 0) {
                     String countUserKey = RedisKeyConstants.buildCountUserKey(userId);
                     boolean isExisted = redisTemplate.hasKey(countUserKey);
                     if (isExisted) {
-                        redisTemplate.opsForHash().put(countUserKey, RedisKeyConstants.FIELD_COLLECT_TOTAL, collectTotal);
+                        redisTemplate.opsForHash().put(countUserKey, RedisKeyConstants.FIELD_NOTE_TOTAL, notePublishTotal);
                     }
                 }
             });
-            deleteRecordMapper.batchDeleteDataAlignUserCollectCountTempTable(tableNameSuffix, userIds);
+            deleteRecordMapper.batchDeleteDataAlignNotePublishCountTempTable(tableNameSuffix, userIds);
         }
-        XxlJobHelper.log("===========> 结束定时分片广播任务：对昨日发生变更的用户获得收藏数进行对齐，共对齐记录数：{}", processedTotal);
+        XxlJobHelper.log("===========> 结束定时分片广播任务：对昨日发生变更的用户笔记发布数进行对齐，共对齐记录数：{}", processedTotal);
     }
 }
