@@ -22,6 +22,7 @@
         <module>xiaochengshu-user-relation</module>
         <module>xiaochengshu-count</module>
         <module>xiaochengshu-data-align</module>
+        <module>xiaochengshu-search</module>
     </modules>
 
     <properties>

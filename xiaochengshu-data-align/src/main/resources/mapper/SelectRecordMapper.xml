@@ -38,8 +38,8 @@
         select user_id from `t_data_align_user_collect_count_temp_${tableNameSuffix}` order by id limit #{batchSize}
     </select>
     <select id="selectUserCollectCountFromNoteCollectAndNoteTableByUserId" resultType="int">
-        select count(*) from t_note_collect where status=1 and note_id in(
-            select note_id from t_note where creator_id=#{userId} and status1
+        select count(*) from t_note_collection where status=1 and note_id in(
+            select note_id from t_note where creator_id=#{userId} and status=1
             )
     </select>
     <select id="selectBatchFromDataAlignNotePublishCountTempTable" resultType="long" parameterType="map">

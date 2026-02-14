@@ -1,0 +1,18 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.chengliuxiang</groupId>
+        <artifactId>xiaochengshu</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>xiaochengshu-search</artifactId>
+    <packaging>pom</packaging>
+    <name>${project.artifactId}</name>
+    <description>搜索服务</description>
+    <modules>
+        <module>xiaochengshu-search-biz</module>
+        <module>xiaochengshu-search-api</module>
+    </modules>
+</project>
