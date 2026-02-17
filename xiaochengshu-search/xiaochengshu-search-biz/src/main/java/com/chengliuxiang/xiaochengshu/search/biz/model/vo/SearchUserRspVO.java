@@ -20,5 +20,10 @@ public class SearchUserRspVO {
 
     private Integer noteTotal;
 
-    private Integer fansTotal;
+    private String fansTotal;
+
+    /**
+     * 昵称关键词高亮
+     */
+    private String highlightNickname;
 }

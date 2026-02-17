@@ -1,6 +1,8 @@
 package com.chengliuxiang.xiaochengshu.search.biz.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
 import com.chengliuxiang.framework.common.response.PageResponse;
+import com.chengliuxiang.framework.common.util.NumberUtils;
 import com.chengliuxiang.xiaochengshu.search.biz.index.UserIndex;
 import com.chengliuxiang.xiaochengshu.search.biz.model.vo.SearchUserReqVO;
 import com.chengliuxiang.xiaochengshu.search.biz.model.vo.SearchUserRspVO;
@@ -16,6 +18,7 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
@@ -51,6 +54,11 @@ public class UserSearchServiceImpl implements UserSearchService {
 
         searchSourceBuilder.from(from);
         searchSourceBuilder.size(pageSize);
+        HighlightBuilder highlightBuilder = new HighlightBuilder();
+        highlightBuilder.field(UserIndex.FIELD_USER_NICKNAME)
+                .preTags("<strong")
+                .postTags("</strong>");
+        searchSourceBuilder.highlighter(highlightBuilder);
         searchRequest.source(searchSourceBuilder); // 将构建的查询条件设置到 SearchRequest 中
         List<SearchUserRspVO> searchUserRspVOS = null;
         long total = 0;
@@ -71,13 +79,20 @@ public class UserSearchServiceImpl implements UserSearchService {
                 Integer noteTotal = (Integer) sourceAsMap.get(UserIndex.FIELD_USER_NOTE_TOTAL);
                 Integer fansTotal = (Integer) sourceAsMap.get(UserIndex.FIELD_USER_FANS_TOTAL);
 
+                String highlightNickname = null;
+                if (CollUtil.isNotEmpty(hit.getHighlightFields())
+                        && hit.getHighlightFields().containsKey(UserIndex.FIELD_USER_NICKNAME)) {
+                    highlightNickname = hit.getHighlightFields().get(UserIndex.FIELD_USER_NICKNAME).fragments()[0].toString();
+                }
+
                 SearchUserRspVO searchUserRspVO = SearchUserRspVO.builder()
                         .userId(userId)
                         .nickname(nickname)
                         .avatar(avatar)
                         .xiaochengshuId(xiaochengshuId)
                         .noteTotal(noteTotal)
-                        .fansTotal(fansTotal).build();
+                        .fansTotal(NumberUtils.formatNumberString(fansTotal))
+                        .highlightNickname(highlightNickname).build();
                 searchUserRspVOS.add(searchUserRspVO);
             }
         } catch (Exception e) {
