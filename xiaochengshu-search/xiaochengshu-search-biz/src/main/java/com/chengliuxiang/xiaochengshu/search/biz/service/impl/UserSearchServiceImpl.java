@@ -42,16 +42,39 @@ public class UserSearchServiceImpl implements UserSearchService {
         SearchRequest searchRequest = new SearchRequest(UserIndex.NAME);
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         // 构建 multi_match 查询，查询 nickname 和 xiaochengshu_id 字段
+//        "query": {
+//            "multi_match": {
+//                "query": "橙子",
+//                "fields": ["nickname", "xiaochengshu_id"]
+//            }
+//        }
         searchSourceBuilder.query(QueryBuilders.multiMatchQuery(
                 keyword, UserIndex.FIELD_USER_NICKNAME, UserIndex.FIELD_USER_XIAOCHENGSHU_ID));
         // 排序，按 fans_total 降序
+//        "sort": [
+//        {
+//            "fans_total": {
+//            "order": "desc"
+//        }
+//        }
+//  ]
         SortBuilder<?> sortBuilder = new FieldSortBuilder(UserIndex.FIELD_USER_FANS_TOTAL)
                 .order(SortOrder.DESC);
         searchSourceBuilder.sort(sortBuilder);
 
+//        "from": 0,
+//        "size": 10,
         int pageSize = 10;
         int from = (pageNo - 1) * pageSize; // 偏移量
 
+//        "highlight": {
+//            "fields": {
+//                "nickname": {
+//                    "pre_tags": ["<strong>"],
+//                    "post_tags": ["</strong>"]
+//                }
+//            }
+//        }
         searchSourceBuilder.from(from);
         searchSourceBuilder.size(pageSize);
         HighlightBuilder highlightBuilder = new HighlightBuilder();
