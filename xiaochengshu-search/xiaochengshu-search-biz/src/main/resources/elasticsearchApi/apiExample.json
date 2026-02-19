@@ -26,6 +26,7 @@
 }
 
 // 笔记搜索 POST /note/_search
+// 默认综合搜索（计算权重并按分数降序）
 {
   "query": {
     "function_score": {
@@ -80,6 +81,85 @@
         "pre_tags": ["<strong>"],
         "post_tags": ["</strong>"]
       }
+    }
+  }
+}
+
+// 按笔记类型过滤搜索
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "壁纸",
+            "fields": [
+              "title^2",
+              "topic"
+            ]
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "type": 0
+          }
+        }
+      ]
+    }
+  },
+  "from": 0,
+  "size": 10,
+  "highlight": {
+    "fields": {
+      "title": {
+        "pre_tags": [
+          "<strong>"
+        ],
+        "post_tags": [
+          "</strong>"
+        ]
+      }
+    }
+  }
+}
+
+// 按笔记创建时间倒序搜索
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "照片",
+            "fields": [
+              "title^2.0",
+              "topic^1.0"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "create_time": {
+        "order": "desc"
+      }
+    }
+  ],
+  "from": 0,
+  "size": 10,
+  "highlight": {
+    "pre_tags": [
+      "<strong>"
+    ],
+    "post_tags": [
+      "</strong>"
+    ],
+    "fields": {
+      "title": {}
     }
   }
 }

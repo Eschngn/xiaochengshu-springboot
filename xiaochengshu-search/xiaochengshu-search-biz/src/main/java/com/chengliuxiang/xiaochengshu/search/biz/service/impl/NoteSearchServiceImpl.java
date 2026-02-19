@@ -4,6 +4,7 @@ import cn.hutool.core.collection.CollUtil;
 import com.chengliuxiang.framework.common.constant.DateConstants;
 import com.chengliuxiang.framework.common.response.PageResponse;
 import com.chengliuxiang.framework.common.util.NumberUtils;
+import com.chengliuxiang.xiaochengshu.search.biz.enums.NoteSortTypeEnum;
 import com.chengliuxiang.xiaochengshu.search.biz.index.NoteIndex;
 import com.chengliuxiang.xiaochengshu.search.biz.model.vo.SearchNoteReqVO;
 import com.chengliuxiang.xiaochengshu.search.biz.model.vo.SearchNoteRspVO;
@@ -18,7 +19,7 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.lucene.search.function.CombineFunction;
 import org.elasticsearch.common.lucene.search.function.FieldValueFactorFunction;
 import org.elasticsearch.common.lucene.search.function.FunctionScoreQuery;
-import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.functionscore.FieldValueFactorFunctionBuilder;
 import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
@@ -46,20 +47,56 @@ public class NoteSearchServiceImpl implements NoteSearchService {
     public PageResponse<SearchNoteRspVO> searchNote(SearchNoteReqVO searchNoteReqVO) {
         String keyword = searchNoteReqVO.getKeyword();
         Integer pageNo = searchNoteReqVO.getPageNo();
+        Integer type = searchNoteReqVO.getType(); // 笔记类型
+        Integer sort = searchNoteReqVO.getSort(); // 排序类型
         SearchRequest searchRequest = new SearchRequest();
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         // 创建查询条件
 //        "query": {
 //            "multi_match": {
-//                "query": "照",
+//                "query": "照片",
 //                        "fields": ["title^2", "topic"]
 //            }
 //        }
-        QueryBuilder queryBuilder = QueryBuilders.multiMatchQuery(keyword)
-                .field(NoteIndex.FIELD_NOTE_TITLE, 2.0f) // 手动设置笔记标题的权重值为 2.0
-                .field(NoteIndex.FIELD_NOTE_TOPIC) // 不设置，权重默认为 1.0
-                ;
-        // 创建 FilterFunctionBuilder 数组
+        BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery().must(
+                QueryBuilders.multiMatchQuery(keyword)
+                        .field(NoteIndex.FIELD_NOTE_TITLE, 2.0f) // 手动设置笔记标题的权重值为 2.0
+                        .field(NoteIndex.FIELD_NOTE_TOPIC) // 不设置，权重默认为 1.0
+        );
+        if (Objects.nonNull(type)) { // 按笔记类型过滤
+            boolQueryBuilder.filter(QueryBuilders.termQuery(NoteIndex.FIELD_NOTE_TYPE, type));
+        }
+        // 排序
+        NoteSortTypeEnum noteSortTypeEnum = NoteSortTypeEnum.valueOf(sort);
+        if (Objects.nonNull(noteSortTypeEnum)) {
+            switch (noteSortTypeEnum) {
+                // 按笔记发布时间降序
+                case LATEST ->
+                        searchSourceBuilder.sort(new FieldSortBuilder(NoteIndex.FIELD_NOTE_CREATE_TIME).order(SortOrder.DESC));
+                // 按笔记点赞量降序
+                case MOST_LIKE ->
+                        searchSourceBuilder.sort(new FieldSortBuilder(NoteIndex.FIELD_NOTE_LIKE_TOTAL).order(SortOrder.DESC));
+                // 按评论量降序
+                case MOST_COMMENT ->
+                        searchSourceBuilder.sort(new FieldSortBuilder(NoteIndex.FIELD_NOTE_COMMENT_TOTAL).order(SortOrder.DESC));
+                // 按收藏量降序
+                case MOST_COLLECT ->
+                        searchSourceBuilder.sort(new FieldSortBuilder(NoteIndex.FIELD_NOTE_COLLECT_TOTAL).order(SortOrder.DESC));
+
+            }
+            searchSourceBuilder.query(boolQueryBuilder);
+        }else{
+            // 综合排序，自定义评分，并按 _score 评分降序
+            // 设置排序
+            // "sort": [
+            //     {
+            //       "_score": {
+            //         "order": "desc"
+            //       }
+            //     }
+            //   ]
+            searchSourceBuilder.sort(new FieldSortBuilder("_score").order(SortOrder.DESC));
+            // 创建 FilterFunctionBuilder 数组
 //        "functions": [
 //        {
 //            "field_value_factor": {
@@ -86,45 +123,37 @@ public class NoteSearchServiceImpl implements NoteSearchService {
 //        }
 //        }
 //      ]
-        FunctionScoreQueryBuilder.FilterFunctionBuilder[] filterFunctionBuilders = new FunctionScoreQueryBuilder.FilterFunctionBuilder[]{
-                // function 1
-                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
-                        new FieldValueFactorFunctionBuilder(NoteIndex.FIELD_NOTE_LIKE_TOTAL)
-                                .factor(0.5f)
-                                .modifier(FieldValueFactorFunction.Modifier.SQRT)
-                                .missing(0)
-                ),
-                // function 2
-                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
-                        new FieldValueFactorFunctionBuilder(NoteIndex.FIELD_NOTE_COLLECT_TOTAL)
-                                .factor(0.3f)
-                                .modifier(FieldValueFactorFunction.Modifier.SQRT)
-                                .missing(0)
-                ),
-                // function 3
-                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
-                        new FieldValueFactorFunctionBuilder(NoteIndex.FIELD_NOTE_COMMENT_TOTAL)
-                                .factor(0.2f)
-                                .modifier(FieldValueFactorFunction.Modifier.SQRT)
-                                .missing(0)
-                ),
-        };
+            FunctionScoreQueryBuilder.FilterFunctionBuilder[] filterFunctionBuilders = new FunctionScoreQueryBuilder.FilterFunctionBuilder[]{
+                    // function 1
+                    new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                            new FieldValueFactorFunctionBuilder(NoteIndex.FIELD_NOTE_LIKE_TOTAL)
+                                    .factor(0.5f)
+                                    .modifier(FieldValueFactorFunction.Modifier.SQRT)
+                                    .missing(0)
+                    ),
+                    // function 2
+                    new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                            new FieldValueFactorFunctionBuilder(NoteIndex.FIELD_NOTE_COLLECT_TOTAL)
+                                    .factor(0.3f)
+                                    .modifier(FieldValueFactorFunction.Modifier.SQRT)
+                                    .missing(0)
+                    ),
+                    // function 3
+                    new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                            new FieldValueFactorFunctionBuilder(NoteIndex.FIELD_NOTE_COMMENT_TOTAL)
+                                    .factor(0.2f)
+                                    .modifier(FieldValueFactorFunction.Modifier.SQRT)
+                                    .missing(0)
+                    ),
+            };
 //        "score_mode": "sum",
 //        "boost_mode": "sum"
-        FunctionScoreQueryBuilder functionScoreQueryBuilder = QueryBuilders.functionScoreQuery(queryBuilder
-                        , filterFunctionBuilders)
-                .scoreMode(FunctionScoreQuery.ScoreMode.SUM)
-                .boostMode(CombineFunction.SUM);
-        searchSourceBuilder.query(functionScoreQueryBuilder); // 设置查询
-        // 设置排序
-        // "sort": [
-        //     {
-        //       "_score": {
-        //         "order": "desc"
-        //       }
-        //     }
-        //   ]
-        searchSourceBuilder.sort(new FieldSortBuilder("_score").order(SortOrder.DESC));
+            FunctionScoreQueryBuilder functionScoreQueryBuilder = QueryBuilders.functionScoreQuery(boolQueryBuilder
+                            , filterFunctionBuilders)
+                    .scoreMode(FunctionScoreQuery.ScoreMode.SUM)
+                    .boostMode(CombineFunction.SUM);
+            searchSourceBuilder.query(functionScoreQueryBuilder); // 设置查询
+        }
         // 设置分页，from 和 size
         int pageSize = 10; // 每页展示数据量
         int from = (pageNo - 1) * pageSize; // 偏移量
