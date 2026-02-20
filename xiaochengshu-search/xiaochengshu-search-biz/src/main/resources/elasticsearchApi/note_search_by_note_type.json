@@ -1,0 +1,41 @@
+// POST /note/_search
+// 按笔记类型过滤搜索
+// 笔记类型：null：综合 / 0：图文 / 1：视频
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "照片",
+            "fields": [
+              "title^2",
+              "topic"
+            ]
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "type": 0
+          }
+        }
+      ]
+    }
+  },
+  "from": 0,
+  "size": 10,
+  "highlight": {
+    "fields": {
+      "title": {
+        "pre_tags": [
+          "<strong>"
+        ],
+        "post_tags": [
+          "</strong>"
+        ]
+      }
+    }
+  }
+}

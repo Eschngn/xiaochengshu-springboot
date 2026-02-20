@@ -1,0 +1,49 @@
+// POST /note/_search
+// 按笔记发布日期时间范围进行筛选
+// 发布时间范围：null：不限 / 0：一天内 / 1：一周内 / 2：半年内
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "照片",
+            "fields": [
+              "title^2",
+              "topic"
+            ]
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "type": 0
+          }
+        },
+        {
+          "range": {
+            "create_time": {
+              "gte": "2024-06-07 16:06:47",
+              "lte": "2024-12-07 16:06:47"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "from": 0,
+  "size": 10,
+  "highlight": {
+    "fields": {
+      "title": {
+        "pre_tags": [
+          "<strong>"
+        ],
+        "post_tags": [
+          "</strong>"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,26 @@
+// 用户搜索 GET /user/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "橙子",
+      "fields": ["nickname", "xiaochengshu_id"]
+    }
+  },
+  "sort": [
+    {
+      "fans_total": {
+        "order": "desc"
+      }
+    }
+  ],
+  "from": 0,
+  "size": 10,
+  "highlight": {
+    "fields": {
+      "nickname": {
+        "pre_tags": ["<strong>"],
+        "post_tags": ["</strong>"]
+      }
+    }
+  }
+}

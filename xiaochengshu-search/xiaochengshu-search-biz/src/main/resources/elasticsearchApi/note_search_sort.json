@@ -1,0 +1,40 @@
+// POST /note/_search
+// 根据特定排序进行笔记搜索
+// 排序：null：不限 / 0：最新 / 1：最多点赞 / 2：最多评论 / 3：最多收藏
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "照片",
+            "fields": [
+              "title^2.0",
+              "topic^1.0"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "create_time": {
+        "order": "desc"
+      }
+    }
+  ],
+  "from": 0,
+  "size": 10,
+  "highlight": {
+    "pre_tags": [
+      "<strong>"
+    ],
+    "post_tags": [
+      "</strong>"
+    ],
+    "fields": {
+      "title": {}
+    }
+  }
+}

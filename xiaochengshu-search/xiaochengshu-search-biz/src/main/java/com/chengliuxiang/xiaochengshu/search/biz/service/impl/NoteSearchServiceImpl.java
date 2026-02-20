@@ -3,7 +3,9 @@ package com.chengliuxiang.xiaochengshu.search.biz.service.impl;
 import cn.hutool.core.collection.CollUtil;
 import com.chengliuxiang.framework.common.constant.DateConstants;
 import com.chengliuxiang.framework.common.response.PageResponse;
+import com.chengliuxiang.framework.common.util.DateUtils;
 import com.chengliuxiang.framework.common.util.NumberUtils;
+import com.chengliuxiang.xiaochengshu.search.biz.enums.NotePublishTimeRangeEnum;
 import com.chengliuxiang.xiaochengshu.search.biz.enums.NoteSortTypeEnum;
 import com.chengliuxiang.xiaochengshu.search.biz.index.NoteIndex;
 import com.chengliuxiang.xiaochengshu.search.biz.model.vo.SearchNoteReqVO;
@@ -12,6 +14,7 @@ import com.chengliuxiang.xiaochengshu.search.biz.service.NoteSearchService;
 import com.google.common.collect.Lists;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
@@ -49,6 +52,7 @@ public class NoteSearchServiceImpl implements NoteSearchService {
         Integer pageNo = searchNoteReqVO.getPageNo();
         Integer type = searchNoteReqVO.getType(); // 笔记类型
         Integer sort = searchNoteReqVO.getSort(); // 排序类型
+        Integer publishTimeRange = searchNoteReqVO.getPublishTimeRange(); // 笔记发布时间范围
         SearchRequest searchRequest = new SearchRequest();
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         // 创建查询条件
@@ -66,9 +70,40 @@ public class NoteSearchServiceImpl implements NoteSearchService {
         if (Objects.nonNull(type)) { // 按笔记类型过滤
             boolQueryBuilder.filter(QueryBuilders.termQuery(NoteIndex.FIELD_NOTE_TYPE, type));
         }
-        // 排序
+        NotePublishTimeRangeEnum notePublishTimeRangeEnum = NotePublishTimeRangeEnum.valueOf(publishTimeRange);
+        if (Objects.nonNull(notePublishTimeRangeEnum)) { // 按笔记发布时间范围过滤
+            String endTime = LocalDateTime.now().format(DateConstants.DATE_FORMAT_Y_M_D_H_M_S);
+            String startTime = null;
+            switch (notePublishTimeRangeEnum) {
+                case DAY -> startTime = DateUtils.localDateTime2String(LocalDateTime.now().minusDays(1)); // 一天之前的时间
+                case WEEK -> startTime = DateUtils.localDateTime2String(LocalDateTime.now().minusWeeks(1)); // 一周之前的时间
+                case HALF_YEAR ->
+                        startTime = DateUtils.localDateTime2String(LocalDateTime.now().minusMonths(6)); // 半年之前的时间
+            }
+            if (StringUtils.isNoneBlank(startTime)) {
+//                {
+//                    "range": {
+//                    "create_time": {
+//                        "gte": "2024-06-07 16:06:47",
+//                        "lte": "2024-12-07 16:06:47"
+//                    }
+//                }
+//                }
+                boolQueryBuilder.filter(QueryBuilders.rangeQuery(NoteIndex.FIELD_NOTE_CREATE_TIME)
+                        .gte(startTime)
+                        .lte(endTime));
+            }
+        }
         NoteSortTypeEnum noteSortTypeEnum = NoteSortTypeEnum.valueOf(sort);
         if (Objects.nonNull(noteSortTypeEnum)) {
+            // 特定排序
+//        "sort": [
+//        {
+//            "create_time": {
+//            "order": "desc"
+//        }
+//        }
+//        ],
             switch (noteSortTypeEnum) {
                 // 按笔记发布时间降序
                 case LATEST ->
@@ -85,7 +120,7 @@ public class NoteSearchServiceImpl implements NoteSearchService {
 
             }
             searchSourceBuilder.query(boolQueryBuilder);
-        }else{
+        } else {
             // 综合排序，自定义评分，并按 _score 评分降序
             // 设置排序
             // "sort": [
