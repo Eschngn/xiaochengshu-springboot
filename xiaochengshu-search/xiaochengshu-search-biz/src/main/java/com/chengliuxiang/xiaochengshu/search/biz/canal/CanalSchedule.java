@@ -3,13 +3,16 @@ package com.chengliuxiang.xiaochengshu.search.biz.canal;
 import com.alibaba.otter.canal.client.CanalConnector;
 import com.alibaba.otter.canal.protocol.CanalEntry;
 import com.alibaba.otter.canal.protocol.Message;
+import com.chengliuxiang.framework.common.enums.StatusEnum;
 import com.chengliuxiang.xiaochengshu.search.biz.domain.mapper.SelectMapper;
 import com.chengliuxiang.xiaochengshu.search.biz.enums.NoteStatusEnum;
 import com.chengliuxiang.xiaochengshu.search.biz.enums.NoteVisibleEnum;
 import com.chengliuxiang.xiaochengshu.search.biz.index.NoteIndex;
+import com.chengliuxiang.xiaochengshu.search.biz.index.UserIndex;
 import com.google.common.collect.Maps;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.RequestOptions;
@@ -153,7 +156,7 @@ public class CanalSchedule implements Runnable {
      * @throws Exception
      */
     private void syncNoteIndex(Long noteId) throws Exception {
-        List<Map<String, Object>> result = selectMapper.selectEsNoteIndexData(noteId); // 从数据库查询 Elasticsearch 笔记索引的文档数据
+        List<Map<String, Object>> result = selectMapper.selectEsNoteIndexData(noteId, null); // 从数据库查询 Elasticsearch 笔记索引的文档数据
         log.info("从数据库查询到的笔记索引文档数据:{}", result);
         for (Map<String, Object> recordMap : result) {
             IndexRequest indexRequest = new IndexRequest(NoteIndex.NAME);
@@ -175,7 +178,73 @@ public class CanalSchedule implements Runnable {
      * @param eventType
      */
     private void handleUserEvent(Map<String, Object> columnMap, CanalEntry.EventType eventType) throws Exception {
-        // TODO:
+        Long userId=Long.parseLong(columnMap.get("id").toString());
+        switch (eventType) {
+            case INSERT -> syncUserIndex(userId);
+            case UPDATE -> {
+                Integer status=Integer.parseInt(columnMap.get("status").toString()); // 用户变更后的状态
+                Integer isDeleted = Integer.parseInt(columnMap.get("is_deleted").toString()); // 变更后的逻辑删除字段
+                if(Objects.equals(status, StatusEnum.ENABLE.getValue())
+                && Objects.equals(isDeleted,0)){ // 用户状态为启用且未被逻辑删除
+                    syncNotesIndexAndUserIndex(userId);
+                }else if(Objects.equals(status, StatusEnum.DISABLE.getValue()) // 用户状态为禁用
+                || Objects.equals(isDeleted,1)){ // 被逻辑删除
+                    deleteUserDocument(String.valueOf(userId));
+                }
+            }
+            default -> log.warn("Unhandled event type for t_user: {}", eventType);
+        }
+    }
+
+    private void  syncUserIndex(Long userId) throws Exception {
+        List<Map<String, Object>> result = selectMapper.selectEsUserIndexData(userId);
+        log.info("从数据库查询到的用户索引文档数据:{}", result);
+        for (Map<String, Object> recordMap : result) {
+            IndexRequest indexRequest = new IndexRequest(UserIndex.NAME);
+            indexRequest.id(String.valueOf(recordMap.get(UserIndex.FIELD_USER_ID)));
+            indexRequest.source(recordMap);
+            restHighLevelClient.index(indexRequest, RequestOptions.DEFAULT);
+        }
+    }
+
+    /**
+     * 同步用户索引、笔记索引（可能是多条）
+     * @param userId
+     */
+    private void syncNotesIndexAndUserIndex(Long userId) throws Exception {
+        BulkRequest bulkRequest = new BulkRequest();
+
+        List<Map<String, Object>> userResult = selectMapper.selectEsUserIndexData(userId);
+        for (Map<String, Object> recordMap : userResult) {
+            IndexRequest indexRequest = new IndexRequest(UserIndex.NAME);
+            indexRequest.id(String.valueOf(recordMap.get(UserIndex.FIELD_USER_ID)));
+            indexRequest.source(recordMap);
+            restHighLevelClient.index(indexRequest, RequestOptions.DEFAULT);
+            bulkRequest.add(indexRequest);
+        }
+
+        List<Map<String, Object>> noteResult = selectMapper.selectEsNoteIndexData(null, userId);
+        for (Map<String, Object> recordMap : noteResult) {
+            IndexRequest indexRequest = new IndexRequest(NoteIndex.NAME);
+            indexRequest.id(String.valueOf(recordMap.get(NoteIndex.FIELD_NOTE_ID)));
+            indexRequest.source(recordMap);
+            restHighLevelClient.index(indexRequest, RequestOptions.DEFAULT);
+            bulkRequest.add(indexRequest);
+        }
+
+        restHighLevelClient.bulk(bulkRequest, RequestOptions.DEFAULT); // 执行批量请求
+    }
+
+    /**
+     * 删除指定 ID 的用户文档
+     * @param documentId
+     * @throws Exception
+     */
+    private void deleteUserDocument(String documentId) throws Exception {
+        // 创建删除请求对象，指定索引名称和文档 ID
+        DeleteRequest deleteRequest = new DeleteRequest(UserIndex.NAME, documentId);
+        // 执行删除操作，将指定文档从 Elasticsearch 索引中删除
+        restHighLevelClient.delete(deleteRequest, RequestOptions.DEFAULT);
     }
 
 }
