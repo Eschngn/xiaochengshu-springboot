@@ -3,18 +3,22 @@ package com.chengliuxiang.xiaochengshu.search.biz.service.impl;
 import cn.hutool.core.collection.CollUtil;
 import com.chengliuxiang.framework.common.constant.DateConstants;
 import com.chengliuxiang.framework.common.response.PageResponse;
+import com.chengliuxiang.framework.common.response.Response;
 import com.chengliuxiang.framework.common.util.DateUtils;
 import com.chengliuxiang.framework.common.util.NumberUtils;
+import com.chengliuxiang.xiaochengshu.search.biz.domain.mapper.SelectMapper;
 import com.chengliuxiang.xiaochengshu.search.biz.enums.NotePublishTimeRangeEnum;
 import com.chengliuxiang.xiaochengshu.search.biz.enums.NoteSortTypeEnum;
 import com.chengliuxiang.xiaochengshu.search.biz.index.NoteIndex;
 import com.chengliuxiang.xiaochengshu.search.biz.model.vo.SearchNoteReqVO;
 import com.chengliuxiang.xiaochengshu.search.biz.model.vo.SearchNoteRspVO;
 import com.chengliuxiang.xiaochengshu.search.biz.service.NoteSearchService;
+import com.chengliuxiang.xiaochengshu.search.dto.RebuildNoteDocumentReqDTO;
 import com.google.common.collect.Lists;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
@@ -34,6 +38,7 @@ import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +50,8 @@ public class NoteSearchServiceImpl implements NoteSearchService {
 
     @Resource
     private RestHighLevelClient restHighLevelClient;
+    @Resource
+    private SelectMapper selectMapper;
 
     @Override
     public PageResponse<SearchNoteRspVO> searchNote(SearchNoteReqVO searchNoteReqVO) {
@@ -262,6 +269,23 @@ public class NoteSearchServiceImpl implements NoteSearchService {
             log.error("==> 查询 Elasticsearch 异常: ", e);
         }
         return PageResponse.success(searchNoteRspVOS, pageNo, pageSize);
+    }
+
+    @Override
+    public Response<Long> rebuildDocument(RebuildNoteDocumentReqDTO rebuildNoteDocumentReqDTO) {
+        Long noteId = rebuildNoteDocumentReqDTO.getId();
+        List<Map<String, Object>> result = selectMapper.selectEsNoteIndexData(noteId, null);
+        for (Map<String, Object> recordMap : result) {
+            IndexRequest indexRequest = new IndexRequest(NoteIndex.NAME);
+            indexRequest.id(String.valueOf(recordMap.get(NoteIndex.FIELD_NOTE_ID)));
+            indexRequest.source(recordMap);
+            try {
+                restHighLevelClient.index(indexRequest, RequestOptions.DEFAULT);
+            } catch (IOException e) {
+                log.error("==> 重建笔记文档失败:",e);
+            }
+        }
+        return Response.success();
     }
 }
 

@@ -6,6 +6,7 @@ import com.chengliuxiang.xiaochengshu.data.align.constant.TableConstants;
 import com.chengliuxiang.xiaochengshu.data.align.domain.mapper.DeleteRecordMapper;
 import com.chengliuxiang.xiaochengshu.data.align.domain.mapper.SelectRecordMapper;
 import com.chengliuxiang.xiaochengshu.data.align.domain.mapper.UpdateRecordMapper;
+import com.chengliuxiang.xiaochengshu.data.align.rpc.SearchRpcService;
 import com.xxl.job.core.context.XxlJobHelper;
 import com.xxl.job.core.handler.annotation.XxlJob;
 import jakarta.annotation.Resource;
@@ -28,6 +29,8 @@ public class FansCountShardingXxlJob {
     private DeleteRecordMapper deleteRecordMapper;
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
+    @Resource
+    private SearchRpcService searchRpcService;
 
     @XxlJob("fansCountShardingJobHandler")
     public void fansCountShardingJobHandler() {
@@ -53,6 +56,7 @@ public class FansCountShardingXxlJob {
                         redisTemplate.opsForHash().put(countUserKey, RedisKeyConstants.FIELD_FANS_TOTAL, followingCount);
                     }
                 }
+                searchRpcService.rebuildUserDocument(userId);
             });
             // 在日增量表中物理删除这一批次记录
             deleteRecordMapper.batchDeleteDataAlignFansCountTempTable(tableNameSuffix, userIds);

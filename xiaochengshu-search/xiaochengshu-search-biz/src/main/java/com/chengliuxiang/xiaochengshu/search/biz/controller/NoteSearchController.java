@@ -2,9 +2,11 @@ package com.chengliuxiang.xiaochengshu.search.biz.controller;
 
 import com.chengliuxiang.framework.biz.operationlog.aspect.ApiOperationLog;
 import com.chengliuxiang.framework.common.response.PageResponse;
+import com.chengliuxiang.framework.common.response.Response;
 import com.chengliuxiang.xiaochengshu.search.biz.model.vo.SearchNoteReqVO;
 import com.chengliuxiang.xiaochengshu.search.biz.model.vo.SearchNoteRspVO;
 import com.chengliuxiang.xiaochengshu.search.biz.service.NoteSearchService;
+import com.chengliuxiang.xiaochengshu.search.dto.RebuildNoteDocumentReqDTO;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
@@ -25,5 +27,12 @@ public class NoteSearchController {
     @ApiOperationLog(description = "搜索笔记")
     public PageResponse<SearchNoteRspVO> searchNote(@RequestBody @Validated SearchNoteReqVO searchNoteReqVO) {
         return noteSearchService.searchNote(searchNoteReqVO);
+    }
+
+    // ===================================== 对其他服务提供的接口 =====================================
+    @PostMapping("/note/document/rebuild")
+    @ApiOperationLog(description = "笔记文档重建")
+    public Response<Long> rebuildDocument(@Validated @RequestBody RebuildNoteDocumentReqDTO rebuildNoteDocumentReqDTO) {
+        return noteSearchService.rebuildDocument(rebuildNoteDocumentReqDTO);
     }
 }

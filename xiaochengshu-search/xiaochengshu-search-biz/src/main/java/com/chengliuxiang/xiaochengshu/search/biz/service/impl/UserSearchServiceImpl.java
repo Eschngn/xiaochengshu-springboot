@@ -2,14 +2,18 @@ package com.chengliuxiang.xiaochengshu.search.biz.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
 import com.chengliuxiang.framework.common.response.PageResponse;
+import com.chengliuxiang.framework.common.response.Response;
 import com.chengliuxiang.framework.common.util.NumberUtils;
+import com.chengliuxiang.xiaochengshu.search.biz.domain.mapper.SelectMapper;
 import com.chengliuxiang.xiaochengshu.search.biz.index.UserIndex;
 import com.chengliuxiang.xiaochengshu.search.biz.model.vo.SearchUserReqVO;
 import com.chengliuxiang.xiaochengshu.search.biz.model.vo.SearchUserRspVO;
 import com.chengliuxiang.xiaochengshu.search.biz.service.UserSearchService;
+import com.chengliuxiang.xiaochengshu.search.dto.RebuildUserDocumentReqDTO;
 import com.google.common.collect.Lists;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
@@ -24,6 +28,7 @@ import org.elasticsearch.search.sort.SortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -34,6 +39,8 @@ public class UserSearchServiceImpl implements UserSearchService {
 
     @Resource
     private RestHighLevelClient restHighLevelClient;
+    @Resource
+    private SelectMapper selectMapper;
 
     @Override
     public PageResponse<SearchUserRspVO> searchUser(SearchUserReqVO searchUserReqVO) {
@@ -122,5 +129,22 @@ public class UserSearchServiceImpl implements UserSearchService {
             log.error("==> 查询 ElasticSearch 异常：", e);
         }
         return PageResponse.success(searchUserRspVOS, pageNo, pageSize);
+    }
+
+    @Override
+    public Response<Long> rebuildDocument(RebuildUserDocumentReqDTO rebuildUserDocumentReqDTO) {
+        Long userId = rebuildUserDocumentReqDTO.getId();
+        List<Map<String, Object>> result = selectMapper.selectEsUserIndexData(userId);
+        for (Map<String, Object> recordMap : result) {
+            IndexRequest indexRequest = new IndexRequest(UserIndex.NAME);
+            indexRequest.id(String.valueOf(recordMap.get(UserIndex.FIELD_USER_ID)));
+            indexRequest.source(recordMap);
+            try {
+                restHighLevelClient.index(indexRequest, RequestOptions.DEFAULT);
+            } catch (IOException e) {
+                log.error("==> 重建用户文档异常:", e);
+            }
+        }
+        return Response.success();
     }
 }

@@ -348,6 +348,11 @@
                 <artifactId>canal.protocol</artifactId>
                 <version>${canal.version}</version>
             </dependency>
+            <dependency>
+                <groupId>com.chengliuxiang</groupId>
+                <artifactId>xiaochengshu-search-api</artifactId>
+                <version>${revision}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

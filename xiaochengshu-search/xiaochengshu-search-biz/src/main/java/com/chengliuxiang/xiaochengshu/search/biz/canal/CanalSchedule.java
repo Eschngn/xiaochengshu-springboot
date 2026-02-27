@@ -189,6 +189,7 @@ public class CanalSchedule implements Runnable {
                     syncNotesIndexAndUserIndex(userId);
                 }else if(Objects.equals(status, StatusEnum.DISABLE.getValue()) // 用户状态为禁用
                 || Objects.equals(isDeleted,1)){ // 被逻辑删除
+                    // TODO：目前用户禁用或删除，没有删除对应的笔记索引文档，后续应该要删除
                     deleteUserDocument(String.valueOf(userId));
                 }
             }

@@ -2,9 +2,11 @@ package com.chengliuxiang.xiaochengshu.search.biz.controller;
 
 import com.chengliuxiang.framework.biz.operationlog.aspect.ApiOperationLog;
 import com.chengliuxiang.framework.common.response.PageResponse;
+import com.chengliuxiang.framework.common.response.Response;
 import com.chengliuxiang.xiaochengshu.search.biz.model.vo.SearchUserReqVO;
 import com.chengliuxiang.xiaochengshu.search.biz.model.vo.SearchUserRspVO;
 import com.chengliuxiang.xiaochengshu.search.biz.service.UserSearchService;
+import com.chengliuxiang.xiaochengshu.search.dto.RebuildUserDocumentReqDTO;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
@@ -25,5 +27,12 @@ public class UserSearchController {
     @ApiOperationLog(description = "搜索用户")
     public PageResponse<SearchUserRspVO> searchUser(@RequestBody @Validated SearchUserReqVO searchUserReqVO) {
         return userSearchService.searchUser(searchUserReqVO);
+    }
+
+    // ===================================== 对其他服务提供的接口 =====================================
+    @PostMapping("/user/document/rebuild")
+    @ApiOperationLog(description = "用户文档重建")
+    public Response<Long> rebuildDocument(@Validated @RequestBody RebuildUserDocumentReqDTO rebuildUserDocumentReqDTO) {
+        return userSearchService.rebuildDocument(rebuildUserDocumentReqDTO);
     }
 }
