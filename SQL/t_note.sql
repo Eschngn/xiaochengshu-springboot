@@ -20,3 +20,11 @@ CREATE TABLE `t_note`
     KEY                `idx_topic_id` (`topic_id`),
     KEY                `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='笔记表';
+
+
+-- Cassandra 笔记内容表
+CREATE TABLE note_content
+(
+    id      UUID PRIMARY KEY,
+    content TEXT
+);

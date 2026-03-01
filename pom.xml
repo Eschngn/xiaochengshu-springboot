@@ -23,6 +23,7 @@
         <module>xiaochengshu-count</module>
         <module>xiaochengshu-data-align</module>
         <module>xiaochengshu-search</module>
+        <module>xiaochengshu-comment</module>
     </modules>
 
     <properties>
