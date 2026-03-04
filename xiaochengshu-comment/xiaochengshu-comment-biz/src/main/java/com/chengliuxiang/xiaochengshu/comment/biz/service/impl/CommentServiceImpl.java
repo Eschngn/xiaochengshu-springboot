@@ -6,16 +6,12 @@ import com.chengliuxiang.framework.common.util.JsonUtils;
 import com.chengliuxiang.xiaochengshu.comment.biz.constant.MQConstants;
 import com.chengliuxiang.xiaochengshu.comment.biz.model.dto.PublishCommentMqDTO;
 import com.chengliuxiang.xiaochengshu.comment.biz.model.vo.PublishCommentReqVO;
+import com.chengliuxiang.xiaochengshu.comment.biz.retry.SendMqRetryHelper;
 import com.chengliuxiang.xiaochengshu.comment.biz.service.CommentService;
 import com.google.common.base.Preconditions;
 import io.micrometer.common.util.StringUtils;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.client.producer.SendCallback;
-import org.apache.rocketmq.client.producer.SendResult;
-import org.apache.rocketmq.spring.core.RocketMQTemplate;
-import org.springframework.messaging.Message;
-import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -25,7 +21,7 @@ import java.time.LocalDateTime;
 public class CommentServiceImpl implements CommentService {
 
     @Resource
-    private RocketMQTemplate rocketMQTemplate;
+    private SendMqRetryHelper sendMqRetryHelper;
 
     @Override
     public Response<?> publishComment(PublishCommentReqVO publishCommentReqVO) {
@@ -44,18 +40,8 @@ public class CommentServiceImpl implements CommentService {
                 .createTime(LocalDateTime.now())
                 .creatorId(creatorId)
                 .build();
-        Message<String> message = MessageBuilder.withPayload(JsonUtils.toJsonString(publishCommentMqDTO)).build();
-        rocketMQTemplate.asyncSend(MQConstants.TOPIC_PUBLISH_COMMENT, message, new SendCallback() {
-            @Override
-            public void onSuccess(SendResult sendResult) {
-                log.info("==> 【评论发布】MQ 发送成功，SendResult: {}", sendResult);
-            }
-
-            @Override
-            public void onException(Throwable throwable) {
-                log.error("==> 【评论发布】MQ 发送异常: ", throwable);
-            }
-        });
+        // 发送 MQ（包含重试机制）
+        sendMqRetryHelper.asyncSend(MQConstants.TOPIC_PUBLISH_COMMENT, JsonUtils.toJsonString(publishCommentMqDTO));
         return Response.success();
     }
 }
