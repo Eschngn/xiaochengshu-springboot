@@ -7,6 +7,7 @@ import com.chengliuxiang.xiaochengshu.comment.biz.constant.MQConstants;
 import com.chengliuxiang.xiaochengshu.comment.biz.model.dto.PublishCommentMqDTO;
 import com.chengliuxiang.xiaochengshu.comment.biz.model.vo.PublishCommentReqVO;
 import com.chengliuxiang.xiaochengshu.comment.biz.retry.SendMqRetryHelper;
+import com.chengliuxiang.xiaochengshu.comment.biz.rpc.DistributedGeneratorRpcService;
 import com.chengliuxiang.xiaochengshu.comment.biz.service.CommentService;
 import com.google.common.base.Preconditions;
 import io.micrometer.common.util.StringUtils;
@@ -22,6 +23,8 @@ public class CommentServiceImpl implements CommentService {
 
     @Resource
     private SendMqRetryHelper sendMqRetryHelper;
+    @Resource
+    private DistributedGeneratorRpcService distributedGeneratorRpcService;
 
     @Override
     public Response<?> publishComment(PublishCommentReqVO publishCommentReqVO) {
@@ -30,9 +33,11 @@ public class CommentServiceImpl implements CommentService {
         String imageUrl = publishCommentReqVO.getImageUrl(); // 评论图片
         Preconditions.checkArgument(StringUtils.isNotEmpty(content) || StringUtils.isNotEmpty(imageUrl),
                 "评论正文和图片不能同时为空");
-        // 发布者 ID
-        Long creatorId = LoginUserContextHolder.getUserId();
+
+        Long creatorId = LoginUserContextHolder.getUserId(); // 发布者 ID
+        String commentId = distributedGeneratorRpcService.generateCommentId(); // 生成评论 ID
         PublishCommentMqDTO publishCommentMqDTO = PublishCommentMqDTO.builder()
+                .commentId(Long.valueOf(commentId))
                 .noteId(publishCommentReqVO.getNoteId())
                 .content(content)
                 .imageUrl(imageUrl)
@@ -40,7 +45,7 @@ public class CommentServiceImpl implements CommentService {
                 .createTime(LocalDateTime.now())
                 .creatorId(creatorId)
                 .build();
-        // 发送 MQ（包含重试机制）
+        // 异步发送 MQ（包含重试机制）
         sendMqRetryHelper.asyncSend(MQConstants.TOPIC_PUBLISH_COMMENT, JsonUtils.toJsonString(publishCommentMqDTO));
         return Response.success();
     }

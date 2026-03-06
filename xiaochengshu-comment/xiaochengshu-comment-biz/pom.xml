@@ -99,6 +99,16 @@
             <groupId>org.apache.rocketmq</groupId>
             <artifactId>rocketmq-client</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>com.chengliuxiang</groupId>
+            <artifactId>xiaochengshu-distributed-id-generator-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.chengliuxiang</groupId>
+            <artifactId>xiaochengshu-kv-api</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

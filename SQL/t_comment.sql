@@ -5,7 +5,7 @@ CREATE TABLE `t_comment`
     `user_id`          bigint (20) unsigned NOT NULL COMMENT '发布者用户ID',
     `content_uuid`     varchar(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '评论内容UUID',
     `is_content_empty` bit(1)      NOT NULL                                         DEFAULT b'0' COMMENT '内容是否为空(0：不为空 1：为空)',
-    `image_url`        varchar(60) NOT NULL                                         DEFAULT '' COMMENT '评论附加图片URL',
+    `image_url`        varchar(80) NOT NULL                                         DEFAULT '' COMMENT '评论附加图片URL',
     `level`            tinyint (2) NOT NULL DEFAULT '1' COMMENT '级别(1：一级评论 2：二级评论)',
     `reply_total`      bigint (20) unsigned DEFAULT 0 COMMENT '评论被回复次数，仅一级评论需要',
     `like_total`       bigint (20) DEFAULT 0 COMMENT '评论被点赞次数',

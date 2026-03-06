@@ -3,6 +3,7 @@ package com.chengliuxiang.xiaochengshu.kv.api;
 import com.chengliuxiang.framework.common.response.Response;
 import com.chengliuxiang.xiaochengshu.kv.constant.ApiConstants;
 import com.chengliuxiang.xiaochengshu.kv.dto.req.AddNoteContentReqDTO;
+import com.chengliuxiang.xiaochengshu.kv.dto.req.BatchAddCommentContentReqDTO;
 import com.chengliuxiang.xiaochengshu.kv.dto.req.DeleteNoteContentReqDTO;
 import com.chengliuxiang.xiaochengshu.kv.dto.req.FindNoteContentReqDTO;
 import com.chengliuxiang.xiaochengshu.kv.dto.rsp.FindNoteContentRspDTO;
@@ -23,4 +24,7 @@ public interface KeyValueFeignApi {
 
     @PostMapping(value = PREFIX + "/note/content/delete")
     Response<?> deleteNoteContent(@RequestBody DeleteNoteContentReqDTO deleteNoteContentReqDTO);
+
+    @PostMapping(value = PREFIX + "/comment/content/batchAdd")
+    Response<?> batchAddCommentContent(@RequestBody BatchAddCommentContentReqDTO batchAddCommentContentReqDTO);
 }

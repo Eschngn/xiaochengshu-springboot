@@ -13,6 +13,14 @@ import java.time.LocalDateTime;
 @Builder
 public class PublishCommentMqDTO {
 
+    /**
+     * 评论 ID
+     */
+    private Long commentId;
+
+    /**
+     * 评论的笔记 ID
+     */
     private Long noteId;
 
     /**
