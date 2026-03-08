@@ -55,4 +55,9 @@ public interface MQConstants {
      * Tag 标签：笔记删除
      */
     String TAG_NOTE_DELETE = "deleteNote";
+
+    /**
+     * Topic：计数 - 笔记点赞数
+     */
+    String TOPIC_LIKE_OR_UNLIKE="LikeUnLikeTopic";
 }

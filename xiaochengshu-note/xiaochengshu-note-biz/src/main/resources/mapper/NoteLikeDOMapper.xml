@@ -118,8 +118,7 @@
       update
           create_time=#{createTime},status=#{status}
   </insert>
-
-  <update id="update2UnlikeByUserIdAndNoteId"
+    <update id="update2UnlikeByUserIdAndNoteId"
           parameterType="com.chengliuxiang.xiaochengshu.note.biz.domain.dataobject.NoteLikeDO">
       update t_note_like
       set status=#{status},
@@ -128,4 +127,13 @@
         and note_id = #{noteId}
         and status = 1
   </update>
+  <insert id="batchInsertOrUpdate" parameterType="list">
+    insert into t_note_like (user_id,note_id,status,create_time)
+    values
+    <foreach collection="noteLikeDOS" item="item" separator=",">
+      (#{item.userId},#{item.noteId},#{item.status},#{item.createTime})
+    </foreach>
+    on duplicate key update
+    status=values(status)
+  </insert>
 </mapper>
