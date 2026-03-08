@@ -92,9 +92,8 @@ public class LikeUnlikeNoteConsumer {
                             Map<Long, List<LikeUnlikeNoteMqDTO>> noteGroupMap = userOperations.stream()
                                     .collect(Collectors.groupingBy(LikeUnlikeNoteMqDTO::getNoteId)); // 按 noteId 进行分组
 
-                            return noteGroupMap.entrySet().stream()
-                                    .filter(entry -> {
-                                        List<LikeUnlikeNoteMqDTO> operations = entry.getValue();
+                            return noteGroupMap.values().stream()
+                                    .filter(operations -> {
                                         int size = operations.size();
                                         if (size % 2 == 0) {
                                             return false; // 偶数次操作：点赞/取消点赞抵消，无需写入
@@ -102,8 +101,7 @@ public class LikeUnlikeNoteConsumer {
                                             return true; // 奇数次操作：保留最后一次操作
                                         }
                                     })
-                                    .map(entry -> {
-                                        List<LikeUnlikeNoteMqDTO> ops = entry.getValue();
+                                    .map(ops -> {
                                         return ops.get(ops.size() - 1); // 取最后一次操作（消息是有序的）
                                     });
                         }).toList();
