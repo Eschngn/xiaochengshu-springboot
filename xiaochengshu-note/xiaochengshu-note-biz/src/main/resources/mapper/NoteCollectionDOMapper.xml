@@ -115,7 +115,8 @@
       values (#{userId}, #{noteId}, #{createTime}, #{status}) on duplicate key
       update create_time=#{createTime},status=#{status}
   </insert>
-  <update id="update2UnCollectByUserIdAndNoteId" parameterType="com.chengliuxiang.xiaochengshu.note.biz.domain.dataobject.NoteCollectionDO">
+
+    <update id="update2UnCollectByUserIdAndNoteId" parameterType="com.chengliuxiang.xiaochengshu.note.biz.domain.dataobject.NoteCollectionDO">
       update t_note_collection
       set status=#{status},
           create_time=#{createTime}
@@ -123,4 +124,13 @@
         and note_id = #{noteId}
         and status = 1
   </update>
+
+  <insert id="batchInsertOrUpdate" parameterType="list">
+    insert into t_note_collection (user_id,note_id,create_time,status)
+    values
+    <foreach collection="noteCollectionDOS" item="item" separator=",">
+      (#{item.userId},#{item.noteId},#{item.createTime},#{item.status})
+    </foreach>
+    on duplicate key update status=values(status)
+  </insert>
 </mapper>

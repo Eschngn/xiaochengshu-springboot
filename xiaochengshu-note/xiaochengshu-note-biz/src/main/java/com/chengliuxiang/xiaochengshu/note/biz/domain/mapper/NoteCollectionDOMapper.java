@@ -27,4 +27,6 @@ public interface NoteCollectionDOMapper {
     int insertOrUpdate(NoteCollectionDO noteCollectionDO);
 
     int update2UnCollectByUserIdAndNoteId(NoteCollectionDO noteCollectionDO);
+
+    int batchInsertOrUpdate(@Param("noteCollectionDOS") List<NoteCollectionDO> noteCollectionDOS);
 }
