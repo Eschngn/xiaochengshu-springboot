@@ -41,6 +41,7 @@ import java.util.Objects;
 )
 @Slf4j
 public class FollowUnfollowConsumer implements RocketMQListener<Message> {
+    // TODO：优化：用户关注/取关改为批量消费写库
     @Resource
     private FollowingDOMapper followingDOMapper;
     @Resource
