@@ -59,10 +59,15 @@ public interface MQConstants {
     /**
      * Topic：计数 - 笔记点赞数
      */
-    String TOPIC_LIKE_OR_UNLIKE="LikeUnLikeTopic";
+    String TOPIC_LIKE_OR_UNLIKE = "LikeUnLikeTopic";
 
     /**
      * Topic：计数 - 笔记收藏数
      */
     String TOPIC_COLLECT_OR_UN_COLLECT = "CollectUnCollectTopic";
+
+    /**
+     * Topic：笔记评论总数计数
+     */
+    String TOPIC_COUNT_NOTE_COMMENT = "CountNoteCommentTopic";
 }
