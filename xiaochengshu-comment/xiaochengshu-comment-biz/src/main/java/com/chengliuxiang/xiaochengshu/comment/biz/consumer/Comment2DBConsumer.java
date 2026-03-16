@@ -182,11 +182,12 @@ public class Comment2DBConsumer {
                 });
 
                 if (Objects.nonNull(insertedRows) && insertedRows > 0) {
-                    List<CountPublishCommentMqDTO> countPublishCommentMqDTOS = publishCommentMqDTOS.stream()
-                            .map(publishCommentMqDTO -> CountPublishCommentMqDTO.builder()
-                                    .commentId(publishCommentMqDTO.getCommentId())
-                                    .noteId(publishCommentMqDTO.getNoteId())
-                                    .build()).toList();
+                    List<CountPublishCommentMqDTO> countPublishCommentMqDTOS = commentBOS.stream().map(commentBO -> CountPublishCommentMqDTO.builder()
+                            .noteId(commentBO.getNoteId())
+                            .commentId(commentBO.getId())
+                            .parentId(commentBO.getParentId())
+                            .level(commentBO.getLevel())
+                            .build()).toList();
                     // 异步发送计数 MQ
                     Message<String> message = MessageBuilder.withPayload(JsonUtils.toJsonString(countPublishCommentMqDTOS)).build();
                     rocketMQTemplate.asyncSend(MQConstants.TOPIC_COUNT_NOTE_COMMENT, message, new SendCallback() {
