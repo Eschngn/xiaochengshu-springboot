@@ -10,14 +10,20 @@ import com.github.phantomthief.collection.BufferTrigger;
 import com.google.common.collect.Lists;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.rocketmq.client.producer.SendCallback;
+import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.apache.rocketmq.spring.core.RocketMQListener;
+import org.apache.rocketmq.spring.core.RocketMQTemplate;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Component
@@ -34,6 +40,8 @@ public class CountNoteChildCommentConsumer implements RocketMQListener<String> {
             .build();
     @Resource
     private CommentDOMapper commentDOMapper;
+    @Resource
+    private RocketMQTemplate rocketMQTemplate;
 
     @Override
     public void onMessage(String body) {
@@ -66,7 +74,21 @@ public class CountNoteChildCommentConsumer implements RocketMQListener<String> {
             commentDOMapper.updateChildCommentTotal(parentId, count);
         }
 
+        // 获取字典中所有评论的父 ID
+        Set<Long> commentIds = groupMap.keySet();
+        Message<String> message = MessageBuilder.withPayload(JsonUtils.toJsonString(commentIds)).build();
+        log.info("发送评论热度消费者的消息:{}",JsonUtils.toJsonString(message));
+        // 异步发送 MQ 消息
+        rocketMQTemplate.asyncSend(MQConstants.TOPIC_COMMENT_HEAT_UPDATE, message, new SendCallback() {
+            @Override
+            public void onSuccess(SendResult sendResult) {
+                log.info("==> 【评论热度值更新】MQ 发送成功，SendResult: {}", sendResult);
+            }
 
-        // TODO:
+            @Override
+            public void onException(Throwable throwable) {
+                log.error("==> 【评论热度值更新】MQ 发送异常: ", throwable);
+            }
+        });
     }
 }

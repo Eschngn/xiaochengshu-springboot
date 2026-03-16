@@ -14,6 +14,7 @@ CREATE TABLE `t_comment`
     `reply_comment_id`    bigint (20) unsigned DEFAULT 0 COMMENT '回复哪个的评论 (0表示是对笔记的评论，若是对他人评论的回复，则存储回复评论的ID)',
     `reply_user_id`       bigint (20) unsigned DEFAULT 0 COMMENT '回复的哪个用户, 存储用户ID',
     `is_top`              tinyint (2) NOT NULL DEFAULT '0' COMMENT '是否置顶(0：不置顶 1：置顶)',
+    `heat`                decimal(10, 2)                                               DEFAULT '0.00' COMMENT '评论热度',
     `create_time`         datetime    NOT NULL                                         DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `update_time`         datetime    NOT NULL                                         DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`) USING BTREE,

@@ -41,4 +41,6 @@ public class CommentDO {
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;
+
+    private Long childCommentTotal;
 }
