@@ -22,8 +22,19 @@ public interface CommentDOMapper {
 
     List<CommentDO> selectByCommentIds(@Param("commentIds") List<Long> commentIds);
 
-    int batchInsert(@Param("comments")List<CommentBO>  comments);
+    int batchInsert(@Param("comments") List<CommentBO> comments);
 
     int batchUpdateHeatByCommentIds(@Param("commentIds") List<Long> commentIds,
-                                    @Param("commentHeatBOS")List<CommentHeatBO> commentHeatBOS);
+                                    @Param("commentHeatBOS") List<CommentHeatBO> commentHeatBOS);
+
+    /**
+     * 查询一级评论下最早回复的评论
+     *
+     * @param parentId
+     * @return
+     */
+    CommentDO selectEarliestByParentId(Long parentId);
+
+    int updateFirstReplyCommentIdByPrimaryKey(@Param("firstReplyCommentId") Long firstReplyCommentId,
+                                              @Param("id") Long id);
 }
