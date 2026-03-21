@@ -2,6 +2,7 @@ package com.chengliuxiang.kv.biz.service;
 
 import com.chengliuxiang.framework.common.response.Response;
 import com.chengliuxiang.xiaochengshu.kv.dto.req.BatchAddCommentContentReqDTO;
+import com.chengliuxiang.xiaochengshu.kv.dto.req.BatchFindCommentContentReqDTO;
 
 public interface CommentContentService {
 
@@ -11,4 +12,11 @@ public interface CommentContentService {
      * @return
      */
     Response<?> batchAddCommentContent(BatchAddCommentContentReqDTO batchAddCommentContentReqDTO);
+
+    /**
+     * 批量查询评论内容
+     * @param batchFindCommentContentReqDTO
+     * @return
+     */
+    Response<?> batchFindCommentContent(BatchFindCommentContentReqDTO batchFindCommentContentReqDTO);
 }
