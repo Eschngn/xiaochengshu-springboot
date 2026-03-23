@@ -122,6 +122,11 @@
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.chengliuxiang</groupId>
+            <artifactId>xiaochengshu-user-api</artifactId>
+        </dependency>
+
 
     </dependencies>
 

@@ -1,16 +1,21 @@
 package com.chengliuxiang.xiaochengshu.comment.biz.rpc;
 
+import cn.hutool.core.collection.CollUtil;
 import com.chengliuxiang.framework.common.constant.DateConstants;
 import com.chengliuxiang.framework.common.response.Response;
 import com.chengliuxiang.xiaochengshu.comment.biz.model.bo.CommentBO;
 import com.chengliuxiang.xiaochengshu.kv.api.KeyValueFeignApi;
 import com.chengliuxiang.xiaochengshu.kv.dto.req.BatchAddCommentContentReqDTO;
+import com.chengliuxiang.xiaochengshu.kv.dto.req.BatchFindCommentContentReqDTO;
 import com.chengliuxiang.xiaochengshu.kv.dto.req.CommentContentReqDTO;
+import com.chengliuxiang.xiaochengshu.kv.dto.req.FindCommentContentReqDTO;
+import com.chengliuxiang.xiaochengshu.kv.dto.rsp.FindCommentContentRspDTO;
 import com.google.common.collect.Lists;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Objects;
 
 @Component
 public class KeyValueRpcService {
@@ -19,7 +24,7 @@ public class KeyValueRpcService {
     private KeyValueFeignApi keyValueFeignApi;
 
     /**
-     * 评论存储评论内容
+     * 批量存储评论内容
      *
      * @param commentBOS
      * @return
@@ -46,5 +51,25 @@ public class KeyValueRpcService {
             throw new RuntimeException("批量保存评论内容失败");
         }
         return true;
+    }
+
+    /**
+     * 批量查询评论内容
+     * @param noteId
+     * @param findCommentContentReqDTOS
+     * @return
+     */
+    public List<FindCommentContentRspDTO> batchFindCommentContent(Long noteId, List<FindCommentContentReqDTO> findCommentContentReqDTOS) {
+        BatchFindCommentContentReqDTO batchFindCommentContentReqDTO = BatchFindCommentContentReqDTO.builder()
+                .noteId(noteId)
+                .commentContentKeys(findCommentContentReqDTOS)
+                .build();
+        Response<List<FindCommentContentRspDTO>> response = keyValueFeignApi.batchFindCommentContent(batchFindCommentContentReqDTO);
+
+        if (!response.isSuccess() || Objects.isNull(response.getData()) || CollUtil.isEmpty(response.getData())) {
+            return null;
+        }
+
+        return response.getData();
     }
 }
