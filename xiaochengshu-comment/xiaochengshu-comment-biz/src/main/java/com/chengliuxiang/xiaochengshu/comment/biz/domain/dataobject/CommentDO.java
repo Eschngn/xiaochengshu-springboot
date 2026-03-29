@@ -45,4 +45,6 @@ public class CommentDO {
     private Long childCommentTotal;
 
     private Long firstReplyCommentId;
+
+    private Double heat;
 }
