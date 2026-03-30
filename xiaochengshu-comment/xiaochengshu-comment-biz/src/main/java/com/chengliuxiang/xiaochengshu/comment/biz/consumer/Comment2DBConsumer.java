@@ -3,6 +3,7 @@ package com.chengliuxiang.xiaochengshu.comment.biz.consumer;
 import cn.hutool.core.collection.CollUtil;
 import com.chengliuxiang.framework.common.util.JsonUtils;
 import com.chengliuxiang.xiaochengshu.comment.biz.constant.MQConstants;
+import com.chengliuxiang.xiaochengshu.comment.biz.constant.RedisKeyConstants;
 import com.chengliuxiang.xiaochengshu.comment.biz.domain.dataobject.CommentDO;
 import com.chengliuxiang.xiaochengshu.comment.biz.domain.mapper.CommentDOMapper;
 import com.chengliuxiang.xiaochengshu.comment.biz.enums.CommentLevelEnum;
@@ -29,15 +30,16 @@ import org.apache.rocketmq.common.protocol.heartbeat.MessageModel;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
+import org.springframework.scripting.support.ResourceScriptSource;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Component
@@ -60,6 +62,8 @@ public class Comment2DBConsumer {
     private KeyValueRpcService keyValueRpcService;
     @Resource
     private RocketMQTemplate rocketMQTemplate;
+    @Resource
+    private RedisTemplate<String, Object> redisTemplate;
 
 
     @Bean
@@ -190,6 +194,8 @@ public class Comment2DBConsumer {
                             .build()).toList();
                     // 异步发送计数 MQ
                     Message<String> message = MessageBuilder.withPayload(JsonUtils.toJsonString(countPublishCommentMqDTOS)).build();
+                    // 同步一级评论到 Redis 热点评论 ZSET 中
+                    syncOneLevelComment2RedisZSet(commentBOS);
                     rocketMQTemplate.asyncSend(MQConstants.TOPIC_COUNT_NOTE_COMMENT, message, new SendCallback() {
                         @Override
                         public void onSuccess(SendResult sendResult) {
@@ -225,5 +231,33 @@ public class Comment2DBConsumer {
                 log.error("", e);
             }
         }
+    }
+
+    /**
+     * 同步一级评论到 Redis 热点评论 ZSET 中
+     *
+     * @param commentBOS
+     */
+    private void syncOneLevelComment2RedisZSet(List<CommentBO> commentBOS) {
+        // 过滤出一级评论，并按所属笔记进行分组，转换为一个 Map 字典
+        Map<Long, List<CommentBO>> noteIdAndBOListMap = commentBOS.stream()
+                .filter(commentBO -> Objects.equals(commentBO.getLevel(), CommentLevelEnum.ONE.getCode()))
+                .collect(Collectors.groupingBy(CommentBO::getNoteId));
+
+        noteIdAndBOListMap.forEach((noteId, commentBOList) -> {
+            String key = RedisKeyConstants.buildCommentListKey(noteId);
+
+            DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+            script.setScriptSource(new ResourceScriptSource(new ClassPathResource("/lua/add_hot_comments.lua")));
+            script.setResultType(Long.class);
+
+            List<Object> args = Lists.newArrayList();
+            commentBOList.forEach(commentBO -> {
+                args.add(commentBO.getId()); // Member：评论 ID
+                args.add(0); // Score：热度值，初始值为 0
+            });
+            redisTemplate.execute(script, Collections.singletonList(key), args.toArray());
+        });
+
     }
 }
